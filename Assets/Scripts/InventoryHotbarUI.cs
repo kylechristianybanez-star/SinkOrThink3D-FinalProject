@@ -158,6 +158,9 @@ public class InventoryHotbarUI : MonoBehaviour
         if (state.boatHealth <= 0)
             return true;
 
+        if (VictoryScreenUI.Instance != null && VictoryScreenUI.Instance.IsShowing)
+            return true;
+
         QuizManager oceanQuiz = FindFirstObjectByType<QuizManager>();
         if (oceanQuiz != null && (oceanQuiz.IsQuizActive || oceanQuiz.IsGameFinished))
             return true;

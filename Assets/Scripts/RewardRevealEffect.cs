@@ -26,6 +26,51 @@ public class RewardRevealEffect : MonoBehaviour
 
         RewardRevealEffect effect = root.AddComponent<RewardRevealEffect>();
         effect.collectTarget = collectTarget;
+
+        if (rewardType == ChestRewardType.GoldenCrown)
+        {
+            effect.riseDuration = 1.65f;
+            effect.flyDuration = 0.75f;
+            effect.riseHeight = 1.25f;
+            effect.spinSpeed = 160f;
+            root.transform.localScale = Vector3.one * 1.45f;
+            AttachCrownSparkles(root.transform);
+        }
+    }
+
+    private static void AttachCrownSparkles(Transform parent)
+    {
+        GameObject fxGo = new GameObject("CrownSparkleBurst");
+        fxGo.transform.SetParent(parent, false);
+        ParticleSystem ps = fxGo.AddComponent<ParticleSystem>();
+        ParticleSystem.MainModule main = ps.main;
+        main.playOnAwake = true;
+        main.loop = true;
+        main.startLifetime = 0.75f;
+        main.startSpeed = 1.4f;
+        main.startSize = 0.08f;
+        main.startColor = new Color(1f, 0.88f, 0.25f, 1f);
+        main.maxParticles = 28;
+
+        ParticleSystem.EmissionModule em = ps.emission;
+        em.rateOverTime = 18f;
+
+        ParticleSystem.ShapeModule shape = ps.shape;
+        shape.shapeType = ParticleSystemShapeType.Sphere;
+        shape.radius = 0.28f;
+
+        ParticleSystemRenderer pr = fxGo.GetComponent<ParticleSystemRenderer>();
+        if (pr != null)
+        {
+            Shader pShader = Shader.Find("Universal Render Pipeline/Particles/Unlit") ?? Shader.Find("Particles/Standard Unlit");
+            if (pShader != null)
+            {
+                Material mat = new Material(pShader);
+                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", new Color(1f, 0.88f, 0.3f, 1f));
+                if (mat.HasProperty("_Color")) mat.SetColor("_Color", new Color(1f, 0.88f, 0.3f, 1f));
+                pr.sharedMaterial = mat;
+            }
+        }
     }
 
     void Start()

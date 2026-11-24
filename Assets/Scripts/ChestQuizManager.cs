@@ -251,6 +251,8 @@ public class ChestQuizManager : MonoBehaviour
                     revealType = assignment.rewardType;
             }
 
+            bool isFinalCrownVictory = activeChest.isSpecialChest && activeChest.islandIndex == 2;
+
             activeChest.OpenChestAnimated();
 
             Vector3 spawnPos = activeChest.rewardRevealPoint != null
@@ -261,8 +263,14 @@ public class ChestQuizManager : MonoBehaviour
                 : null;
             RewardRevealEffect.SpawnReveal(spawnPos, target, revealType);
 
-            CloseQuizPanel(false);
+            CloseQuizPanel(!isFinalCrownVictory);
             ScreenFader.EnsureInstance().ShowArrivalBanner(rewardMessage, 2.8f);
+
+            if (isFinalCrownVictory)
+            {
+                yield return new WaitForSecondsRealtime(2.35f);
+                VictoryScreenUI.EnsureInstance().ShowVictory();
+            }
         }
         else
         {
@@ -287,7 +295,7 @@ public class ChestQuizManager : MonoBehaviour
         if (quizCanvasGo != null)
             quizCanvasGo.SetActive(false);
 
-        if (activePlayer != null)
+        if (restorePlayerImmediately && activePlayer != null)
             activePlayer.SetControlsEnabled(true);
 
         activeChest = null;
