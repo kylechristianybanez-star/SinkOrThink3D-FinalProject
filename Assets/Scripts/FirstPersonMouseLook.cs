@@ -1,31 +1,61 @@
-
 using UnityEngine;
 
+/// <summary>
+/// Allows holding right mouse button to look around from the boat without blocking quiz clicks.
+/// </summary>
 public class FirstPersonMouseLook : MonoBehaviour
 {
     public float mouseSensitivity = 2f;
+    public bool clampHorizontal = false;
+    public float maxHorizontalAngle = 110f;
 
     private float verticalRotation = 0f;
+    private float horizontalRotation = 0f;
+
+    void Awake()
+    {
+        SyncFromLocalRotation(transform.localRotation);
+    }
 
     void Update()
     {
-        // Hold right mouse button to look around.
-        // This keeps the left mouse button free for quiz answers.
+        if (Time.timeScale == 0f)
+            return;
+
+        // Hold right mouse button to look around so left mouse button stays free for quiz answers.
         if (Input.GetMouseButton(1))
         {
             float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
             float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
 
-            // Look left and right.
-            transform.Rotate(0f, mouseX, 0f, Space.World);
+            horizontalRotation += mouseX;
+            if (clampHorizontal)
+                horizontalRotation = Mathf.Clamp(horizontalRotation, -maxHorizontalAngle, maxHorizontalAngle);
 
-            // Look up and down.
             verticalRotation -= mouseY;
             verticalRotation = Mathf.Clamp(verticalRotation, -70f, 70f);
 
-            Vector3 angles = transform.localEulerAngles;
-            angles.x = verticalRotation;
-            transform.localEulerAngles = angles;
+            transform.localRotation = Quaternion.Euler(verticalRotation, horizontalRotation, 0f);
         }
+    }
+
+    public void ResetLook(Quaternion targetLocalRotation)
+    {
+        transform.localRotation = targetLocalRotation;
+        SyncFromLocalRotation(targetLocalRotation);
+    }
+
+    private void SyncFromLocalRotation(Quaternion localRotation)
+    {
+        Vector3 angles = localRotation.eulerAngles;
+        verticalRotation = NormalizeAngle(angles.x);
+        horizontalRotation = NormalizeAngle(angles.y);
+    }
+
+    private float NormalizeAngle(float angle)
+    {
+        if (angle > 180f)
+            angle -= 360f;
+        return angle;
     }
 }

@@ -1,9 +1,15 @@
-
-using UnityEngine;
-using UnityEngine.SceneManagement;
-using TMPro;
+using System.Collections;
 using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+using TMPro;
 
+/// <summary>
+/// Runs the ocean travel and 5-question quiz rounds, handles single-click 3D answer input,
+/// randomizes questions and A-D answer choices, and triggers damage or Game Over.
+/// </summary>
 public class QuizManager : MonoBehaviour
 {
     public TMP_Text questionText;
@@ -34,120 +40,71 @@ public class QuizManager : MonoBehaviour
     public float travelTime = 20f;
     public float answerTime = 15f;
 
+    [Header("Quiz Rules & Feedback")]
+    public int questionsPerRound = 5;
+    public int requiredRoundsBeforeDock = 1;
+    public TMP_Text questionCounterText;
+    public Color correctColor = new Color(0.2f, 0.78f, 0.3f);
+    public Color wrongColor = new Color(0.85f, 0.22f, 0.22f);
+    public Color hoverTintColor = new Color(1f, 0.92f, 0.65f);
+
     private float timeRemaining;
     private bool canAnswer = false;
     private bool isTraveling = false;
     private bool gameFinished = false;
+    private bool pausedForDocking = false;
 
     private int questionsInRound = 0;
     private int roundNumber = 1;
-    private int activeQuestionIndex = 0;
+    private int currentIslandIndex = 0;
+    private int displayedCorrectAnswer = 0;
 
-    private Color originalColor;
+    private Color originalColor = Color.white;
+    private Vector3 originalTimerScale = Vector3.one;
 
-    private List<int> questionOrder = new List<int>();
+    private QuizQuestion[] activeQuestionPool;
+    private readonly List<int> questionOrder = new List<int>();
     private int questionPosition = 0;
+    private readonly int[] choiceShuffle = new int[4] { 0, 1, 2, 3 };
 
-    // EASY ELEMENTARY QUESTIONS
-    private string[] questions =
-    {
-        // MATHEMATICS
-        "What is 5 + 3?",
-        "What is 10 - 4?",
-        "What is 2 x 3?",
-        "What is 12 / 3?",
-        "What is 7 + 2?",
-        "What is 5 x 2?",
+    private AnswerButton3D[] answerButtons = new AnswerButton3D[4];
+    private AnswerButton3D hoveredButton;
+    private Coroutine nextQuestionCoroutine;
+    private readonly List<RaycastResult> uiRaycastResults = new List<RaycastResult>();
 
-        // SCIENCE
-        "What do plants need to grow?",
-        "Which animal can fly?",
-        "What do we use to see?",
-        "What gives us light during the day?",
-        "What do fish use to breathe?",
-        "What do we drink to stay healthy?",
-
-        // ENGLISH
-        "What is the opposite of hot?",
-        "Which word is a color?",
-        "What is the plural of cat?",
-        "Which animal says meow?",
-        "What is the opposite of big?",
-        "Which word is a fruit?",
-
-        // FILIPINO
-        "Ano ang kulay ng dugo?",
-        "Ano ang kabaligtaran ng taas?",
-        "Ilang araw mayroon sa isang linggo?",
-        "Ano ang tawag sa ina ng iyong ina?",
-        "Ano ang pambansang wika ng Pilipinas?",
-        "Ano ang kulay ng dahon?",
-
-        // GENERAL KNOWLEDGE
-        "How many days are in a week?",
-        "How many months are in a year?",
-        "What shape has three sides?",
-        "What is the first month of the year?",
-        "How many legs does a dog have?",
-        "What do we use to write?"
-    };
-
-    private string[] answersA =
-    {
-        "6", "4", "5", "2", "8", "10",
-        "Water", "Dog", "Ears", "Moon", "Lungs", "Soda",
-        "Cold", "Apple", "Cats", "Dog", "Small", "Carrot",
-        "Pula", "Baba", "5", "Lola", "English", "Asul",
-        "5", "10", "Circle", "January", "2", "Spoon"
-    };
-
-    private string[] answersB =
-    {
-        "8", "5", "6", "3", "9", "12",
-        "Plastic", "Cat", "Eyes", "Sun", "Gills", "Coffee",
-        "Warm", "Blue", "Cates", "Cat", "Tall", "Mango",
-        "Asul", "Laki", "6", "Ate", "Filipino", "Pula",
-        "6", "11", "Square", "March", "3", "Pencil"
-    };
-
-    private string[] answersC =
-    {
-        "9", "6", "7", "4", "10", "15",
-        "Stone", "Bird", "Nose", "Star", "Wings", "Water",
-        "Big", "Table", "Cat's", "Cow", "Long", "Chair",
-        "Dilaw", "Liit", "7", "Tita", "Spanish", "Berde",
-        "7", "12", "Triangle", "June", "4", "Plate"
-    };
-
-    private string[] answersD =
-    {
-        "10", "7", "8", "5", "11", "20",
-        "Glass", "Fish", "Hands", "Cloud", "Feet", "Juice",
-        "Fast", "Chair", "Caties", "Duck", "Heavy", "Book",
-        "Berde", "Init", "8", "Pinsan", "French", "Itim",
-        "8", "13", "Rectangle", "August", "6", "Fork"
-    };
-
-    // A=0, B=1, C=2, D=3
-    private int[] correctAnswers =
-    {
-        1, 2, 1, 2, 1, 0,
-        0, 2, 1, 1, 1, 2,
-        0, 1, 0, 1, 0, 1,
-        0, 0, 2, 0, 1, 2,
-        2, 2, 2, 0, 2, 1
-    };
+    public bool IsQuizActive => canAnswer || (quizBoard != null && quizBoard.activeInHierarchy);
+    public bool IsGameFinished => gameFinished;
 
     void Start()
     {
+        GameStateManager state = GameStateManager.EnsureInstance();
+        currentIslandIndex = Mathf.Clamp(state.currentIslandIndex, 0, 2);
+
         if (firstPersonMouseLook != null)
             startingCameraRotation = firstPersonMouseLook.transform.localRotation;
+
+        if (timerText != null)
+        {
+            originalTimerScale = timerText.transform.localScale;
+            timerText.raycastTarget = false;
+        }
+
+        if (oceanTravelTimerText != null)
+            oceanTravelTimerText.raycastTarget = false;
+
+        if (questionText != null)
+            questionText.raycastTarget = false;
+
+        DisableAnswerTextRaycasts();
+
+        if (buttonA != null && buttonA.material != null)
+            originalColor = buttonA.material.color;
+
+        CacheAnswerButtons();
 
         currentQuestion = 0;
         questionsInRound = 0;
         roundNumber = 1;
-
-        originalColor = buttonA.material.color;
 
         if (gameOverPanel != null)
             gameOverPanel.SetActive(false);
@@ -155,13 +112,22 @@ public class QuizManager : MonoBehaviour
         if (celebrationEffect != null)
             celebrationEffect.Stop();
 
+        QuizDifficulty difficulty = (QuizDifficulty)currentIslandIndex;
+        activeQuestionPool = QuestionBank.GetQuestions(difficulty);
+
+        if (state.boatHealth <= 0)
+        {
+            GameOver();
+            return;
+        }
+
         ShuffleQuestions();
         StartTravel();
     }
 
     void Update()
     {
-        if (gameFinished)
+        if (gameFinished || pausedForDocking || Time.timeScale == 0f)
             return;
 
         if (isTraveling)
@@ -186,43 +152,145 @@ public class QuizManager : MonoBehaviour
         if (!canAnswer)
             return;
 
+        HandleBoardPointerInput();
+
         timeRemaining -= Time.deltaTime;
 
         if (timeRemaining <= 0f)
         {
-            timeRemaining = 0f;
-            canAnswer = false;
-
-            timerText.text = "Question Time: 0s";
-            timerText.color = Color.red;
-
-            boatSink.SinkBoat();
-
-            if (boatSink.currentHealth <= 0)
-            {
-                GameOver();
-                return;
-            }
-
-            questionText.text = "Time's Up! Boat damaged!";
-            Invoke(nameof(NextQuestion), 2f);
+            HandleTimeout();
             return;
         }
 
         UpdateTimerDisplay();
     }
 
+    private void CacheAnswerButtons()
+    {
+        Renderer[] renderers = new Renderer[] { buttonA, buttonB, buttonC, buttonD };
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            if (renderers[i] != null)
+                answerButtons[i] = renderers[i].GetComponent<AnswerButton3D>();
+        }
+    }
+
+    private void DisableAnswerTextRaycasts()
+    {
+        TMP_Text[] texts = new TMP_Text[] { answerTextA, answerTextB, answerTextC, answerTextD };
+        for (int i = 0; i < texts.Length; i++)
+        {
+            if (texts[i] != null)
+                texts[i].raycastTarget = false;
+        }
+    }
+
+    private void HandleBoardPointerInput()
+    {
+        if (Camera.main == null)
+            return;
+
+        if (gameOverPanel != null && gameOverPanel.activeInHierarchy)
+        {
+            ClearHover();
+            return;
+        }
+
+        if (IsPointerBlockedByInteractiveUI())
+        {
+            ClearHover();
+            return;
+        }
+
+        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        RaycastHit[] hits = Physics.RaycastAll(ray, 100f);
+
+        AnswerButton3D closestButton = null;
+        float closestDistance = float.MaxValue;
+
+        for (int i = 0; i < hits.Length; i++)
+        {
+            AnswerButton3D button = hits[i].collider.GetComponentInParent<AnswerButton3D>();
+            if (button != null && hits[i].distance < closestDistance)
+            {
+                closestDistance = hits[i].distance;
+                closestButton = button;
+            }
+        }
+
+        UpdateHoveredButton(closestButton);
+
+        if (closestButton != null && Input.GetMouseButtonDown(0))
+        {
+            closestButton.TriggerClick();
+        }
+    }
+
+    private bool IsPointerBlockedByInteractiveUI()
+    {
+        if (EventSystem.current == null)
+            return false;
+
+        PointerEventData pointerData = new PointerEventData(EventSystem.current)
+        {
+            position = Input.mousePosition
+        };
+
+        uiRaycastResults.Clear();
+        EventSystem.current.RaycastAll(pointerData, uiRaycastResults);
+
+        for (int i = 0; i < uiRaycastResults.Count; i++)
+        {
+            GameObject hitObject = uiRaycastResults[i].gameObject;
+            if (hitObject.GetComponentInParent<Selectable>() != null)
+                return true;
+        }
+
+        return false;
+    }
+
+    private void UpdateHoveredButton(AnswerButton3D targetButton)
+    {
+        if (hoveredButton == targetButton)
+            return;
+
+        if (hoveredButton != null)
+        {
+            hoveredButton.SetHovered(false);
+            SetButtonColor(hoveredButton.answerNumber, originalColor);
+        }
+
+        hoveredButton = targetButton;
+
+        if (hoveredButton != null)
+        {
+            hoveredButton.SetHovered(true);
+            SetButtonColor(hoveredButton.answerNumber, originalColor * hoverTintColor);
+        }
+    }
+
+    private void ClearHover()
+    {
+        if (hoveredButton != null)
+        {
+            hoveredButton.SetHovered(false);
+            hoveredButton = null;
+        }
+    }
+
     void ShuffleQuestions()
     {
         questionOrder.Clear();
 
-        for (int i = 0; i < questions.Length; i++)
+        if (activeQuestionPool == null || activeQuestionPool.Length == 0)
+            return;
+
+        for (int i = 0; i < activeQuestionPool.Length; i++)
             questionOrder.Add(i);
 
         for (int i = questionOrder.Count - 1; i > 0; i--)
         {
             int randomIndex = Random.Range(0, i + 1);
-
             int temp = questionOrder[i];
             questionOrder[i] = questionOrder[randomIndex];
             questionOrder[randomIndex] = temp;
@@ -233,6 +301,8 @@ public class QuizManager : MonoBehaviour
 
     void StartTravel()
     {
+        ClearHover();
+
         if (firstPersonMouseLook != null)
             firstPersonMouseLook.enabled = true;
 
@@ -246,8 +316,15 @@ public class QuizManager : MonoBehaviour
         if (quizBoard != null)
             quizBoard.SetActive(false);
 
-        timerText.text = "";
-        timerText.color = Color.white;
+        if (timerText != null)
+        {
+            timerText.text = "";
+            timerText.color = Color.white;
+            timerText.transform.localScale = originalTimerScale;
+        }
+
+        if (questionCounterText != null)
+            questionCounterText.text = "";
 
         UpdateOceanTravelTimer();
     }
@@ -256,24 +333,32 @@ public class QuizManager : MonoBehaviour
     {
         if (oceanTravelTimerText != null)
         {
+            string dockHint = CanDockNow() ? "  |  Dock Ready (Press F near dock)" : "";
             oceanTravelTimerText.text =
                 "Round " + roundNumber +
                 " - Ocean Travel: " +
-                Mathf.CeilToInt(timeRemaining) + "s";
+                Mathf.CeilToInt(timeRemaining) + "s" + dockHint;
         }
     }
 
     void ShowQuestion()
     {
+        if (activeQuestionPool == null || activeQuestionPool.Length == 0)
+            return;
+
         if (firstPersonMouseLook != null)
         {
             firstPersonMouseLook.enabled = false;
-            firstPersonMouseLook.transform.localRotation = startingCameraRotation;
+            if (firstPersonMouseLook is FirstPersonMouseLook look)
+                look.ResetLook(startingCameraRotation);
+            else
+                firstPersonMouseLook.transform.localRotation = startingCameraRotation;
         }
 
         if (boatMovement != null)
-            boatMovement.canMove = false;
+            boatMovement.StopBoat();
 
+        ClearHover();
         ResetButtonColors();
 
         if (quizBoard != null)
@@ -282,16 +367,43 @@ public class QuizManager : MonoBehaviour
         if (questionPosition >= questionOrder.Count)
             ShuffleQuestions();
 
-        activeQuestionIndex = questionOrder[questionPosition];
+        int activeQuestionIndex = questionOrder[questionPosition];
         questionPosition++;
 
-        questionText.gameObject.SetActive(true);
-        questionText.text = questions[activeQuestionIndex];
+        QuizQuestion q = activeQuestionPool[activeQuestionIndex];
 
-        answerTextA.text = "A. " + answersA[activeQuestionIndex];
-        answerTextB.text = "B. " + answersB[activeQuestionIndex];
-        answerTextC.text = "C. " + answersC[activeQuestionIndex];
-        answerTextD.text = "D. " + answersD[activeQuestionIndex];
+        // Randomize A-D answer placement on every question.
+        for (int i = 0; i < 4; i++)
+            choiceShuffle[i] = i;
+
+        for (int i = 3; i > 0; i--)
+        {
+            int swapIndex = Random.Range(0, i + 1);
+            int temp = choiceShuffle[i];
+            choiceShuffle[i] = choiceShuffle[swapIndex];
+            choiceShuffle[swapIndex] = temp;
+        }
+
+        displayedCorrectAnswer = 0;
+        for (int i = 0; i < 4; i++)
+        {
+            if (choiceShuffle[i] == q.correctIndex)
+            {
+                displayedCorrectAnswer = i;
+                break;
+            }
+        }
+
+        if (questionText != null)
+        {
+            questionText.gameObject.SetActive(true);
+            questionText.text = q.questionText;
+        }
+
+        if (answerTextA != null) answerTextA.text = "A. " + q.choices[choiceShuffle[0]];
+        if (answerTextB != null) answerTextB.text = "B. " + q.choices[choiceShuffle[1]];
+        if (answerTextC != null) answerTextC.text = "C. " + q.choices[choiceShuffle[2]];
+        if (answerTextD != null) answerTextD.text = "D. " + q.choices[choiceShuffle[3]];
 
         timeRemaining = answerTime;
         canAnswer = true;
@@ -301,62 +413,135 @@ public class QuizManager : MonoBehaviour
 
     void UpdateTimerDisplay()
     {
-        timerText.text =
-            "Question Time: " +
-            Mathf.CeilToInt(timeRemaining) + "s";
+        int questionNum = questionsInRound + 1;
+        int seconds = Mathf.CeilToInt(timeRemaining);
 
-        timerText.color =
-            timeRemaining <= 5f ? Color.red : Color.white;
+        if (questionCounterText != null)
+            questionCounterText.text = "Question " + questionNum + "/" + questionsPerRound;
+
+        if (timerText != null)
+        {
+            if (questionCounterText == null)
+                timerText.text = "Question " + questionNum + "/" + questionsPerRound + "  |  Time: " + seconds + "s";
+            else
+                timerText.text = "Question Time: " + seconds + "s";
+
+            bool lowTime = timeRemaining <= 5f;
+            timerText.color = lowTime ? Color.red : Color.white;
+
+            if (lowTime)
+            {
+                float pulse = 1f + Mathf.Abs(Mathf.Sin(Time.time * 6f)) * 0.08f;
+                timerText.transform.localScale = originalTimerScale * pulse;
+            }
+            else
+            {
+                timerText.transform.localScale = originalTimerScale;
+            }
+        }
     }
 
-    public void CheckAnswer(int answer)
+    private void HandleTimeout()
     {
-        if (!canAnswer || gameFinished)
-            return;
-
-        if (boatSink.currentHealth <= 0)
-            return;
-
-        Renderer selectedButton = null;
-
-        if (answer == 0) selectedButton = buttonA;
-        else if (answer == 1) selectedButton = buttonB;
-        else if (answer == 2) selectedButton = buttonC;
-        else if (answer == 3) selectedButton = buttonD;
-
-        if (selectedButton == null)
-            return;
-
+        timeRemaining = 0f;
         canAnswer = false;
+        ClearHover();
 
-        if (answer == correctAnswers[activeQuestionIndex])
+        if (timerText != null)
         {
-            selectedButton.material.color = Color.green;
-            questionText.text = "Correct! The boat is safe!";
+            timerText.text = "Question Time: 0s";
+            timerText.color = Color.red;
+            timerText.transform.localScale = originalTimerScale;
         }
-        else
-        {
-            selectedButton.material.color = Color.red;
-            boatSink.SinkBoat();
 
+        SetButtonColor(displayedCorrectAnswer, correctColor);
+
+        if (boatSink != null)
+        {
+            boatSink.SinkBoat();
             if (boatSink.currentHealth <= 0)
             {
                 GameOver();
                 return;
             }
-
-            questionText.text = "Wrong answer! Boat damaged!";
         }
 
-        Invoke(nameof(NextQuestion), 2f);
+        if (questionText != null)
+            questionText.text = "Time's Up! Boat damaged!";
+
+        ScheduleNextQuestion(2f);
+    }
+
+    public void CheckAnswer(int answer)
+    {
+        if (!canAnswer || gameFinished || pausedForDocking)
+            return;
+
+        if (boatSink != null && boatSink.currentHealth <= 0)
+            return;
+
+        Renderer selectedButton = GetButtonRenderer(answer);
+        if (selectedButton == null)
+            return;
+
+        canAnswer = false;
+        ClearHover();
+
+        if (timerText != null)
+            timerText.transform.localScale = originalTimerScale;
+
+        if (answer == displayedCorrectAnswer)
+        {
+            SetButtonColor(answer, correctColor);
+            if (questionText != null)
+                questionText.text = "Correct! The boat is safe!";
+        }
+        else
+        {
+            SetButtonColor(answer, wrongColor);
+            SetButtonColor(displayedCorrectAnswer, correctColor);
+
+            if (boatSink != null)
+            {
+                boatSink.SinkBoat();
+                if (boatSink.currentHealth <= 0)
+                {
+                    GameOver();
+                    return;
+                }
+            }
+
+            if (questionText != null)
+                questionText.text = "Wrong answer! Boat damaged!";
+        }
+
+        ScheduleNextQuestion(2f);
+    }
+
+    private void ScheduleNextQuestion(float delaySeconds)
+    {
+        if (nextQuestionCoroutine != null)
+            StopCoroutine(nextQuestionCoroutine);
+
+        nextQuestionCoroutine = StartCoroutine(NextQuestionDelayed(delaySeconds));
+    }
+
+    private IEnumerator NextQuestionDelayed(float delaySeconds)
+    {
+        yield return new WaitForSeconds(delaySeconds);
+        nextQuestionCoroutine = null;
+        NextQuestion();
     }
 
     void NextQuestion()
     {
+        if (gameFinished || pausedForDocking)
+            return;
+
         currentQuestion++;
         questionsInRound++;
 
-        if (questionsInRound >= 5)
+        if (questionsInRound >= questionsPerRound)
         {
             RoundCompleted();
             return;
@@ -371,10 +556,43 @@ public class QuizManager : MonoBehaviour
         roundNumber++;
         questionsInRound = 0;
 
+        GameStateManager.EnsureInstance().MarkOceanRoundCompleted(currentIslandIndex);
+
         if (celebrationEffect != null)
             celebrationEffect.Play();
 
         StartTravel();
+    }
+
+    public bool CanDockNow()
+    {
+        if (gameFinished || IsQuizActive)
+            return false;
+
+        return GameStateManager.EnsureInstance().HasCompletedOceanRound(currentIslandIndex, requiredRoundsBeforeDock);
+    }
+
+    public void PauseForDocking()
+    {
+        pausedForDocking = true;
+        canAnswer = false;
+        isTraveling = false;
+        ClearHover();
+
+        if (nextQuestionCoroutine != null)
+        {
+            StopCoroutine(nextQuestionCoroutine);
+            nextQuestionCoroutine = null;
+        }
+
+        if (quizBoard != null)
+            quizBoard.SetActive(false);
+
+        if (oceanTravelTimerText != null)
+            oceanTravelTimerText.text = "";
+
+        if (timerText != null)
+            timerText.text = "";
     }
 
     void GameOver()
@@ -385,19 +603,31 @@ public class QuizManager : MonoBehaviour
         gameFinished = true;
         canAnswer = false;
         isTraveling = false;
+        ClearHover();
+
+        if (nextQuestionCoroutine != null)
+        {
+            StopCoroutine(nextQuestionCoroutine);
+            nextQuestionCoroutine = null;
+        }
 
         if (boatMovement != null)
-            boatMovement.canMove = false;
-
-        CancelInvoke(nameof(NextQuestion));
+            boatMovement.StopBoat();
 
         if (quizBoard != null)
             quizBoard.SetActive(false);
 
-        timerText.text = "";
+        if (timerText != null)
+        {
+            timerText.text = "";
+            timerText.transform.localScale = originalTimerScale;
+        }
 
         if (oceanTravelTimerText != null)
             oceanTravelTimerText.text = "";
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
 
         if (gameOverPanel != null)
             gameOverPanel.SetActive(true);
@@ -405,16 +635,32 @@ public class QuizManager : MonoBehaviour
 
     public void PlayAgain()
     {
-        SceneManager.LoadScene(
-            SceneManager.GetActiveScene().name
-        );
+        Time.timeScale = 1f;
+        GameStateManager.EnsureInstance().StartNewGame();
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    private Renderer GetButtonRenderer(int index)
+    {
+        if (index == 0) return buttonA;
+        if (index == 1) return buttonB;
+        if (index == 2) return buttonC;
+        if (index == 3) return buttonD;
+        return null;
+    }
+
+    private void SetButtonColor(int index, Color color)
+    {
+        Renderer renderer = GetButtonRenderer(index);
+        if (renderer != null && renderer.material != null)
+            renderer.material.color = color;
     }
 
     void ResetButtonColors()
-    {   
-        buttonA.material.color = originalColor;
-        buttonB.material.color = originalColor;
-        buttonC.material.color = originalColor;
-        buttonD.material.color = originalColor;
+    {
+        SetButtonColor(0, originalColor);
+        SetButtonColor(1, originalColor);
+        SetButtonColor(2, originalColor);
+        SetButtonColor(3, originalColor);
     }
 }
