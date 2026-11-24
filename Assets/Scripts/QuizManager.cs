@@ -623,6 +623,15 @@ public class QuizManager : MonoBehaviour
             timerText.text = "";
     }
 
+    public void ResumeFromDocking()
+    {
+        if (gameFinished)
+            return;
+
+        pausedForDocking = false;
+        StartTravel();
+    }
+
     void GameOver()
     {
         if (firstPersonMouseLook != null)
