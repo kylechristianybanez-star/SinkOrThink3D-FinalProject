@@ -14,6 +14,7 @@ public class BoatDocking : MonoBehaviour
     [Header("Docking Alignment & Scene Transition")]
     public Transform dockParkingPoint;
     public QuizManager quizManager;
+    public bool autoMatchCurrentIsland = true;
     public string islandDisplayName = "Discovery Island";
     public string targetIslandSceneName = "IslandScene";
     public bool transitionToIslandScene = false;
@@ -29,6 +30,15 @@ public class BoatDocking : MonoBehaviour
 
     void Start()
     {
+        if (autoMatchCurrentIsland)
+        {
+            GameStateManager state = GameStateManager.EnsureInstance();
+            islandDisplayName = state.GetIslandDisplayName(state.currentIslandIndex);
+            string sceneForIsland = state.GetIslandSceneName(state.currentIslandIndex);
+            if (!string.IsNullOrEmpty(sceneForIsland))
+                targetIslandSceneName = sceneForIsland;
+        }
+
         if (quizManager == null)
             quizManager = FindFirstObjectByType<QuizManager>();
 

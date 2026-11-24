@@ -10,6 +10,7 @@ public class GameStateManager : MonoBehaviour
 
     [Header("Progression")]
     public int currentIslandIndex = 0; // 0 = Discovery, 1 = Viking, 2 = Final Treasure
+    public bool returningFromIsland = false;
     public int[] oceanRoundsCompletedForIsland = new int[3];
     public bool[] completedIslandSpecialChest = new bool[3];
 
@@ -84,6 +85,7 @@ public class GameStateManager : MonoBehaviour
         EnsureArraySizes();
 
         currentIslandIndex = 0;
+        returningFromIsland = false;
         boatHealth = maxBoatHealth;
         coins = 0;
         planks = 0;
@@ -144,5 +146,38 @@ public class GameStateManager : MonoBehaviour
             return false;
 
         return oceanRoundsCompletedForIsland[islandIndex] >= requiredRounds;
+    }
+
+    public string GetIslandDisplayName(int islandIndex)
+    {
+        switch (islandIndex)
+        {
+            case 1: return "Viking Island";
+            case 2: return "Final Treasure Island";
+            default: return "Discovery Island";
+        }
+    }
+
+    public string GetIslandSceneName(int islandIndex)
+    {
+        switch (islandIndex)
+        {
+            case 1: return "VikingIslandScene";
+            case 2: return "FinalIslandScene";
+            default: return "IslandScene";
+        }
+    }
+
+    public bool TryAdvanceToNextIsland()
+    {
+        EnsureArraySizes();
+        if (currentIslandIndex < 0 || currentIslandIndex >= 2)
+            return false;
+
+        if (!completedIslandSpecialChest[currentIslandIndex])
+            return false;
+
+        currentIslandIndex++;
+        return true;
     }
 }
