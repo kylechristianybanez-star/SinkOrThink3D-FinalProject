@@ -30,6 +30,7 @@ public class IslandSceneController : MonoBehaviour
         GameStateManager state = GameStateManager.EnsureInstance();
         ScreenFader fader = ScreenFader.EnsureInstance();
         InventoryHotbarUI.EnsureInstance();
+        MagicCompassUI.EnsureInstance();
         ChestQuizManager.EnsureInScene(islandIndex);
 
         CleanupDuplicateSceneSystems();
@@ -54,13 +55,16 @@ public class IslandSceneController : MonoBehaviour
 
         GameStateManager state = GameStateManager.EnsureInstance();
         string keyText = (islandIndex >= 0 && islandIndex < 3 && state.hasIslandKey[islandIndex]) ? "Yes" : "No";
-        string compassText = state.hasMagicCompass ? "  |  Compass: Yes" : "";
+        string compassText = state.hasMagicCompass ? "  |  Compass: Active" : "";
+        int openedCount = state.GetOpenedChestCountForIsland(islandIndex);
         islandStatusText.text =
             islandDisplayName +
             "  |  Boat HP: " + state.boatHealth + "/" + state.maxBoatHealth +
             "  |  Coins: " + state.coins +
             "  |  Key: " + keyText +
-            compassText;
+            "  |  Chests: " + openedCount + "/6" +
+            compassText +
+            "\n" + state.GetCurrentObjectiveText();
     }
 
     private void CleanupDuplicateSceneSystems()

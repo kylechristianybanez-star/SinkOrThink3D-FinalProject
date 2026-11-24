@@ -33,9 +33,12 @@ public class IslandBoatReturn : IslandInteractable
         bool objectiveDone = islandIndex >= 0 && islandIndex < 3 && state.completedIslandSpecialChest[islandIndex];
 
         if (objectiveDone && islandIndex < 2)
-            return "Press F to Board Boat — Sail to " + state.GetIslandDisplayName(islandIndex + 1);
+            return "Press F to Board Boat — Sail to " + state.GetIslandDisplayName(islandIndex + 1) + "!";
 
-        return "Press F to Board Boat (Return to Ocean)";
+        if (objectiveDone && islandIndex == 2)
+            return "Press F to Board Boat (Return to Ocean)";
+
+        return "Press F to Board Boat (Unlock Special Chest first to advance)";
     }
 
     public override void Interact(IslandPlayerController player)

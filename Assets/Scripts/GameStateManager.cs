@@ -490,4 +490,50 @@ public class GameStateManager : MonoBehaviour
         feedback = "Dock Repair (-" + CoinRepairCost + " Coins): +" + restoredHp + " Boat HP (" + boatHealth + "/" + maxBoatHealth + ")";
         return true;
     }
+
+    public string GetVoyageLabel(int islandIndex)
+    {
+        switch (islandIndex)
+        {
+            case 1: return "Viking Voyage (Medium)";
+            case 2: return "Final Voyage (Hard)";
+            default: return "Discovery Voyage (Easy)";
+        }
+    }
+
+    public int GetOpenedChestCountForIsland(int islandIndex)
+    {
+        if (openedChestIds == null)
+            return 0;
+
+        string prefix = islandIndex == 1 ? "viking_" : (islandIndex == 2 ? "final_" : "discovery_");
+        int count = 0;
+        for (int i = 0; i < openedChestIds.Count; i++)
+        {
+            if (openedChestIds[i] != null && openedChestIds[i].StartsWith(prefix))
+                count++;
+        }
+        return count;
+    }
+
+    public string GetCurrentObjectiveText()
+    {
+        EnsureArraySizes();
+        int idx = Mathf.Clamp(currentIslandIndex, 0, 2);
+
+        if (hasGoldenCrown)
+            return "Victory! Legendary Golden Crown recovered!";
+
+        if (completedIslandSpecialChest[idx])
+        {
+            if (idx < 2)
+                return "Objective: Board Boat at Dock to Sail to " + GetIslandDisplayName(idx + 1) + "!";
+            return "Objective: Victory Achieved!";
+        }
+
+        if (hasIslandKey[idx])
+            return "Objective: Unlock " + GetIslandDisplayName(idx) + "'s Special Chest with your Golden Key!";
+
+        return "Objective: Explore chests to find " + GetIslandDisplayName(idx) + "'s Golden Key.";
+    }
 }

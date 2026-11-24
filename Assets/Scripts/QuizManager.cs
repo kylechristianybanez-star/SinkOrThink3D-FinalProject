@@ -80,6 +80,7 @@ public class QuizManager : MonoBehaviour
     {
         GameStateManager state = GameStateManager.EnsureInstance();
         InventoryHotbarUI.EnsureInstance();
+        MagicCompassUI.EnsureInstance();
         currentIslandIndex = Mathf.Clamp(state.currentIslandIndex, 0, 2);
 
         if (firstPersonMouseLook != null)
@@ -345,10 +346,11 @@ public class QuizManager : MonoBehaviour
     {
         if (oceanTravelTimerText != null)
         {
+            string voyageLabel = GameStateManager.EnsureInstance().GetVoyageLabel(currentIslandIndex);
             string dockHint = CanDockNow() ? "  |  Dock Ready (Press F near dock)" : "";
             oceanTravelTimerText.text =
-                "Round " + roundNumber +
-                " - Ocean Travel: " +
+                voyageLabel + "  |  Round " + roundNumber +
+                " - Travel: " +
                 Mathf.CeilToInt(timeRemaining) + "s" + dockHint;
         }
     }
