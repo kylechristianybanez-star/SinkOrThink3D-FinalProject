@@ -31,6 +31,9 @@ public class PauseAndSettingsUI : MonoBehaviour
     private bool openedSettingsFromPause = false;
     private bool otherModalWasOpenLastFrame = false;
     private bool suppressSliderEvents = false;
+    private QuizManager cachedOceanQuiz;
+    private ChestQuizManager cachedChestQuiz;
+    private bool sceneRefsCached = false;
 
     public bool IsOpen =>
         (pausePanelRoot != null && pausePanelRoot.activeSelf) ||
@@ -82,6 +85,18 @@ public class PauseAndSettingsUI : MonoBehaviour
         SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 
+    void Start()
+    {
+        RefreshSceneReferences();
+    }
+
+    private void RefreshSceneReferences()
+    {
+        cachedOceanQuiz = FindFirstObjectByType<QuizManager>();
+        cachedChestQuiz = FindFirstObjectByType<ChestQuizManager>();
+        sceneRefsCached = true;
+    }
+
     void Update()
     {
         bool otherModalOpenNow = IsBlockedByOtherModal();
@@ -116,7 +131,9 @@ public class PauseAndSettingsUI : MonoBehaviour
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        sceneRefsCached = false;
         CloseAll();
+        RefreshSceneReferences();
         ApplySavedSensitivityToScene();
     }
 
@@ -128,12 +145,13 @@ public class PauseAndSettingsUI : MonoBehaviour
         if (InventoryHotbarUI.Instance != null && InventoryHotbarUI.Instance.IsInventoryOpen)
             return true;
 
-        ChestQuizManager chestQuiz = FindFirstObjectByType<ChestQuizManager>();
-        if (chestQuiz != null && chestQuiz.IsQuizOpen)
+        if (!sceneRefsCached)
+            RefreshSceneReferences();
+
+        if (cachedChestQuiz != null && cachedChestQuiz.IsQuizOpen)
             return true;
 
-        QuizManager oceanQuiz = FindFirstObjectByType<QuizManager>();
-        if (oceanQuiz != null && oceanQuiz.IsGameFinished)
+        if (cachedOceanQuiz != null && cachedOceanQuiz.IsGameFinished)
             return true;
 
         return false;

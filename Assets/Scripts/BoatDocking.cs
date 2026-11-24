@@ -29,9 +29,12 @@ public class BoatDocking : MonoBehaviour
 
     private bool isDocked = false;
     private bool isTransitioning = false;
+    private BoatSink cachedBoatSink;
 
     void Start()
     {
+        if (boat != null)
+            cachedBoatSink = boat.GetComponent<BoatSink>();
         if (autoMatchCurrentIsland)
         {
             GameStateManager state = GameStateManager.EnsureInstance();
@@ -59,8 +62,10 @@ public class BoatDocking : MonoBehaviour
         if (boat == null || Time.timeScale == 0f || isTransitioning)
             return;
 
-        BoatSink boatSink = boat.GetComponent<BoatSink>();
-        if (boatSink != null && (boatSink.isSinking || boatSink.currentHealth <= 0))
+        if (cachedBoatSink == null && boat != null)
+            cachedBoatSink = boat.GetComponent<BoatSink>();
+
+        if (cachedBoatSink != null && (cachedBoatSink.isSinking || cachedBoatSink.currentHealth <= 0))
         {
             HidePrompt();
             UpdateGuideText("");

@@ -45,6 +45,9 @@ public class InventoryHotbarUI : MonoBehaviour
     private float plankPulseTimer = 0f;
     private float potionPulseTimer = 0f;
     private float modalAnimTimer = 0f;
+    private QuizManager cachedOceanQuiz;
+    private ChestQuizManager cachedChestQuiz;
+    private bool sceneQuizRefsCached = false;
 
     public bool IsInventoryOpen => inventoryOverlay != null && inventoryOverlay.activeSelf;
 
@@ -92,8 +95,16 @@ public class InventoryHotbarUI : MonoBehaviour
 
     void Start()
     {
+        RefreshSceneQuizReferences();
         RefreshVisibilityForScene(SceneManager.GetActiveScene().name);
         RefreshUI();
+    }
+
+    private void RefreshSceneQuizReferences()
+    {
+        cachedOceanQuiz = FindFirstObjectByType<QuizManager>();
+        cachedChestQuiz = FindFirstObjectByType<ChestQuizManager>();
+        sceneQuizRefsCached = true;
     }
 
     void Update()
@@ -136,9 +147,11 @@ public class InventoryHotbarUI : MonoBehaviour
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        sceneQuizRefsCached = false;
         if (IsInventoryOpen)
             SetInventoryOpen(false);
 
+        RefreshSceneQuizReferences();
         RefreshVisibilityForScene(scene.name);
         RefreshUI();
     }
@@ -164,12 +177,13 @@ public class InventoryHotbarUI : MonoBehaviour
         if (PauseAndSettingsUI.Instance != null && PauseAndSettingsUI.Instance.IsOpen)
             return true;
 
-        QuizManager oceanQuiz = FindFirstObjectByType<QuizManager>();
-        if (oceanQuiz != null && (oceanQuiz.IsQuizActive || oceanQuiz.IsGameFinished))
+        if (!sceneQuizRefsCached)
+            RefreshSceneQuizReferences();
+
+        if (cachedOceanQuiz != null && (cachedOceanQuiz.IsQuizActive || cachedOceanQuiz.IsGameFinished))
             return true;
 
-        ChestQuizManager chestQuiz = FindFirstObjectByType<ChestQuizManager>();
-        if (chestQuiz != null && chestQuiz.IsQuizOpen)
+        if (cachedChestQuiz != null && cachedChestQuiz.IsQuizOpen)
             return true;
 
         return false;

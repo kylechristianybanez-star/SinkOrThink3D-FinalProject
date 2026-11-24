@@ -186,7 +186,7 @@ public class MagicCompassUI : MonoBehaviour
     private bool TryFindNextTarget(out Vector3 targetPos, out string label, out Color labelColor)
     {
         GameStateManager state = GameStateManager.EnsureInstance();
-        int idx = Mathf.Clamp(state.currentIslandIndex, 0, 2);
+        int idx = Mathf.Clamp(state.selectedIslandIndex, 0, 2);
         bool hasKey = state.hasIslandKey[idx];
 
         TreasureChest specialChest = null;

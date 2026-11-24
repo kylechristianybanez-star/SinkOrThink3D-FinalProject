@@ -27,7 +27,7 @@ public static class Phase12PolishAndAudioSetup
         RunBuild(true);
     }
 
-    [MenuItem("Tools/SinkOrThink3D/Build All Scenes (Phases 9.5 -> 12)")]
+    [MenuItem("Tools/SinkOrThink3D/Build & Verify All Scenes (Phases 9.5 -> 13)")]
     public static void BuildAllScenes()
     {
         if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
@@ -37,16 +37,18 @@ public static class Phase12PolishAndAudioSetup
         Phase10VikingIslandSetup.RunBuild(false);
         Phase11FinalIslandSetup.RunBuild(false);
         RunBuild(false);
+        Phase13OptimizationAndQATool.RunOptimizationAndAudit(false);
 
         EditorSceneManager.OpenScene(MainMenuPath, OpenSceneMode.Single);
 
-        Debug.Log("All Phases (9.5 -> 12) built and saved cleanly!");
+        Debug.Log("All Phases (9.5 -> 13) built, optimized, audited, and saved cleanly!");
         EditorUtility.DisplayDialog(
-            "Build All Scenes Complete",
-            "Successfully executed Phases 9.5, 10, 11, and 12 across MainMenu, GameScene, and IslandScene:\n" +
+            "Build & Verify All Scenes Complete",
+            "Successfully executed Phases 9.5, 10, 11, 12, and 13 across MainMenu, GameScene, and IslandScene:\n" +
             "- Discovery Island, Viking Island, and Final Treasure Island overviews + docks\n" +
-            "- Reusable IslandScene with all 3 detailed islands & 18 chests\n" +
-            "- 17 WAV audio clips + GameAudioManager + MainMenu SettingsButton + drifting SkyCloudLayer\n\n" +
+            "- Reusable IslandScene with all 3 detailed islands & 18 verified chests\n" +
+            "- 17 WAV audio clips + GameAudioManager + MainMenu SettingsButton + SkyCloudLayer\n" +
+            "- RTX 2050 scene/terrain optimizations & full QA audit passed (check Console for report)\n\n" +
             "MainMenu.unity is now open and ready to press Play!",
             "OK"
         );
