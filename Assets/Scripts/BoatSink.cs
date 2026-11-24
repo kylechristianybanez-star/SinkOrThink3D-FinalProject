@@ -142,6 +142,16 @@ public class BoatSink : MonoBehaviour
         return restored;
     }
 
+    public void SyncFromGameState(bool playRepairFx)
+    {
+        GameStateManager state = GameStateManager.EnsureInstance();
+        currentHealth = Mathf.Clamp(state.boatHealth, 0, maxHealth);
+        UpdateHealthText();
+
+        if (playRepairFx && boatAnimator != null)
+            boatAnimator.PlayRepairEffect();
+    }
+
     private void UpdateHealthUIImmediate()
     {
         UpdateHealthText();

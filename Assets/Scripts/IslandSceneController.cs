@@ -29,6 +29,7 @@ public class IslandSceneController : MonoBehaviour
         Time.timeScale = 1f;
         GameStateManager state = GameStateManager.EnsureInstance();
         ScreenFader fader = ScreenFader.EnsureInstance();
+        InventoryHotbarUI.EnsureInstance();
         ChestQuizManager.EnsureInScene(islandIndex);
 
         CleanupDuplicateSceneSystems();

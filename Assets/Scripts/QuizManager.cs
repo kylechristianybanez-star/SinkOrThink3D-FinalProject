@@ -79,6 +79,7 @@ public class QuizManager : MonoBehaviour
     void Start()
     {
         GameStateManager state = GameStateManager.EnsureInstance();
+        InventoryHotbarUI.EnsureInstance();
         currentIslandIndex = Mathf.Clamp(state.currentIslandIndex, 0, 2);
 
         if (firstPersonMouseLook != null)

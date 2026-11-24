@@ -406,4 +406,88 @@ public class GameStateManager : MonoBehaviour
         NotifyStateChanged();
         return message;
     }
+
+    public bool TryUsePlank(out int restoredHp, out string feedback)
+    {
+        restoredHp = 0;
+
+        if (boatHealth <= 0)
+        {
+            feedback = "Cannot repair — your boat has already sunk!";
+            return false;
+        }
+
+        if (planks <= 0)
+        {
+            feedback = "No Wooden Planks left!";
+            return false;
+        }
+
+        if (boatHealth >= maxBoatHealth)
+        {
+            feedback = "Boat health is already full (" + boatHealth + "/" + maxBoatHealth + ").";
+            return false;
+        }
+
+        planks = Mathf.Max(0, planks - 1);
+        restoredHp = HealBoat(PlankHealAmount);
+        feedback = "Used 1 Wooden Plank: +" + restoredHp + " Boat HP (" + boatHealth + "/" + maxBoatHealth + ")";
+        return true;
+    }
+
+    public bool TryUsePotion(out int restoredHp, out string feedback)
+    {
+        restoredHp = 0;
+
+        if (boatHealth <= 0)
+        {
+            feedback = "Cannot repair — your boat has already sunk!";
+            return false;
+        }
+
+        if (potions <= 0)
+        {
+            feedback = "No Repair Potions left!";
+            return false;
+        }
+
+        if (boatHealth >= maxBoatHealth)
+        {
+            feedback = "Boat health is already full (" + boatHealth + "/" + maxBoatHealth + ").";
+            return false;
+        }
+
+        potions = Mathf.Max(0, potions - 1);
+        restoredHp = HealBoat(PotionHealAmount);
+        feedback = "Used 1 Repair Potion: +" + restoredHp + " Boat HP (" + boatHealth + "/" + maxBoatHealth + ")";
+        return true;
+    }
+
+    public bool TryCoinRepair(out int restoredHp, out string feedback)
+    {
+        restoredHp = 0;
+
+        if (boatHealth <= 0)
+        {
+            feedback = "Cannot repair — your boat has already sunk!";
+            return false;
+        }
+
+        if (boatHealth >= maxBoatHealth)
+        {
+            feedback = "Boat health is already full (" + boatHealth + "/" + maxBoatHealth + ").";
+            return false;
+        }
+
+        if (coins < CoinRepairCost)
+        {
+            feedback = "Need " + CoinRepairCost + " Coins to repair (You have " + coins + ").";
+            return false;
+        }
+
+        coins = Mathf.Max(0, coins - CoinRepairCost);
+        restoredHp = HealBoat(CoinRepairHealAmount);
+        feedback = "Dock Repair (-" + CoinRepairCost + " Coins): +" + restoredHp + " Boat HP (" + boatHealth + "/" + maxBoatHealth + ")";
+        return true;
+    }
 }
