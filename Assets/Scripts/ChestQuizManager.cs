@@ -226,8 +226,11 @@ public class ChestQuizManager : MonoBehaviour
             choiceImages[selectedIndex].color = correctBtnColor;
             feedbackText.text = "Correct! Opening treasure chest...";
             feedbackText.color = new Color(0.1f, 0.52f, 0.15f, 1f);
+            GameAudioManager.EnsureInstance().PlayCorrect();
 
             yield return new WaitForSecondsRealtime(0.85f);
+
+            GameAudioManager.EnsureInstance().PlayTreasureCollect();
 
             GameStateManager state = GameStateManager.EnsureInstance();
             ChestRewardType revealType = ChestRewardType.Coins;
@@ -280,6 +283,7 @@ public class ChestQuizManager : MonoBehaviour
 
             feedbackText.text = "Wrong answer! Chest stays locked — press E to try a new question.";
             feedbackText.color = new Color(0.68f, 0.12f, 0.12f, 1f);
+            GameAudioManager.EnsureInstance().PlayWrong();
 
             yield return new WaitForSecondsRealtime(1.45f);
 

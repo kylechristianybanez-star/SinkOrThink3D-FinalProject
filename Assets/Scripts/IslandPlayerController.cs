@@ -60,6 +60,7 @@ public class IslandPlayerController : MonoBehaviour
     void Awake()
     {
         controller = GetComponent<CharacterController>();
+        mouseSensitivity = PauseAndSettingsUI.GetSavedMouseSensitivity();
 
         if (cameraTransform == null)
         {
@@ -246,8 +247,23 @@ public class IslandPlayerController : MonoBehaviour
         {
             int index = Random.Range(0, footstepClips.Length);
             if (footstepClips[index] != null)
+            {
                 footstepAudioSource.PlayOneShot(footstepClips[index]);
+                return;
+            }
         }
+
+        bool isWoodDock = false;
+        if (Physics.Raycast(transform.position + Vector3.up * 0.25f, Vector3.down, out RaycastHit hit, 1.8f))
+        {
+            string hitName = hit.collider.gameObject.name;
+            isWoodDock = hitName.IndexOf("Dock", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                         hitName.IndexOf("Ramp", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                         hitName.IndexOf("Bridge", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                         hitName.IndexOf("Wood", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        GameAudioManager.EnsureInstance().PlayFootstep(isWoodDock);
     }
 
     private void HandleWaterSafety()

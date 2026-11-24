@@ -43,6 +43,9 @@ public class IslandSceneController : MonoBehaviour
 
         InventoryHotbarUI.EnsureInstance();
         MagicCompassUI compass = MagicCompassUI.EnsureInstance();
+        GameAudioManager audioMgr = GameAudioManager.EnsureInstance();
+        PauseAndSettingsUI.EnsureInstance();
+        audioMgr.SetIslandAmbience(islandIndex);
         ChestQuizManager chestQuiz = ChestQuizManager.EnsureInScene(islandIndex);
         chestQuiz.RefreshForIsland(islandIndex);
 

@@ -53,7 +53,12 @@ public static class Phase9_5DiscoveryIslandPolish
     [MenuItem("Tools/SinkOrThink3D/Phase 9.5 - Build & Polish Discovery Island (GameScene + IslandScene)")]
     public static void BuildAndPolishDiscoveryIsland()
     {
-        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+        RunBuild(true);
+    }
+
+    public static void RunBuild(bool showDialog)
+    {
+        if (showDialog && !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             return;
 
         // Build/refresh reusable chest prefabs first
@@ -74,16 +79,19 @@ public static class Phase9_5DiscoveryIslandPolish
         AssetDatabase.SaveAssets();
 
         Debug.Log("Phase 9.5 Complete! Polished Discovery Island in both GameScene.unity and IslandScene.unity.");
-        EditorUtility.DisplayDialog(
-            "Phase 9.5 Discovery Island Polish Complete",
-            "Updated and saved BOTH GameScene.unity and IslandScene.unity:\n" +
-            "- Fixed Shadow Atlas overflow, Quiz Board frame, Boat animations & Ocean fog\n" +
-            "- Fixed close Boat Dock alignment & Return-to-Dock spawning\n" +
-            "- Built reusable IslandScene (DiscoveryIsland active; VikingIsland & FinalTreasureIsland placeholders ready)\n" +
-            "- Added solid colliders to all Palm Trees, Rocks, Bamboo Houses, Bridge & Ramp\n" +
-            "- Placed 6 scenic, reachable Discovery Chests + Dock Repair Workbench",
-            "OK"
-        );
+        if (showDialog)
+        {
+            EditorUtility.DisplayDialog(
+                "Phase 9.5 Discovery Island Polish Complete",
+                "Updated and saved BOTH GameScene.unity and IslandScene.unity:\n" +
+                "- Fixed Shadow Atlas overflow, Quiz Board frame, Boat animations & Ocean fog\n" +
+                "- Fixed close Boat Dock alignment & Return-to-Dock spawning\n" +
+                "- Built reusable IslandScene (DiscoveryIsland active; VikingIsland & FinalTreasureIsland placeholders ready)\n" +
+                "- Added solid colliders to all Palm Trees, Rocks, Bamboo Houses, Bridge & Ramp\n" +
+                "- Placed 6 scenic, reachable Discovery Chests + Dock Repair Workbench",
+                "OK"
+            );
+        }
     }
 
     private static void PolishGameScene(Scene gameScene)

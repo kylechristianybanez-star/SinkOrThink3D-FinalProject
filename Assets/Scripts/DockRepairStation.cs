@@ -33,8 +33,12 @@ public class DockRepairStation : IslandInteractable
         GameStateManager state = GameStateManager.EnsureInstance();
         bool repaired = state.TryCoinRepair(out int restored, out string feedback);
 
-        if (repaired && repairBurstParticles != null)
-            repairBurstParticles.Play();
+        if (repaired)
+        {
+            GameAudioManager.EnsureInstance().PlayRepair();
+            if (repairBurstParticles != null)
+                repairBurstParticles.Play();
+        }
 
         ScreenFader.EnsureInstance().ShowArrivalBanner(feedback, 2.4f);
     }

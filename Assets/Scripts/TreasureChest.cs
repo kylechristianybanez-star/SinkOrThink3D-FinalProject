@@ -133,6 +133,7 @@ public class TreasureChest : IslandInteractable
 
         IsOpened = true;
         GameStateManager.EnsureInstance().MarkChestOpened(chestId);
+        GameAudioManager.EnsureInstance().PlayChestOpen();
 
         if (lockVisual != null)
             lockVisual.SetActive(false);
@@ -147,5 +148,6 @@ public class TreasureChest : IslandInteractable
     public void PlayLockedRattle()
     {
         rattleTimer = 0.35f;
+        GameAudioManager.EnsureInstance().PlayChestLocked();
     }
 }

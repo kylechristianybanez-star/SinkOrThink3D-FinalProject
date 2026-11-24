@@ -62,7 +62,12 @@ public static class Phase11FinalIslandSetup
     [MenuItem("Tools/SinkOrThink3D/Phase 11 - Build Final Treasure Island (GameScene + IslandScene)")]
     public static void BuildFinalTreasureIsland()
     {
-        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+        RunBuild(true);
+    }
+
+    public static void RunBuild(bool showDialog)
+    {
+        if (showDialog && !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             return;
 
         EnsureFolder("Assets/Prefabs");
@@ -101,13 +106,16 @@ public static class Phase11FinalIslandSetup
         AssetDatabase.SaveAssets();
 
         Debug.Log("Phase 11 Complete! Built Final Treasure Island overview in GameScene.unity and detailed FinalTreasureIsland in IslandScene.unity.");
-        EditorUtility.DisplayDialog(
-            "Phase 11 Final Treasure Island Complete",
-            "Built reusable textured Ancient Ruin & Waterfall prefabs (AncientTempleArch, AncientStonePillar, AncientTreasureChamber, AncientWaterfall) and updated BOTH scenes:\n" +
-            "- GameScene.unity: Added FinalIslandOverview + locked/unlockable BoatDockPoint_Final (Terrain 3)\n" +
-            "- IslandScene.unity: Built detailed FinalTreasureIsland (inactive by default; auto-activated on dock), 6 Final Chests (Hard quizzes -> Legendary Golden Crown & Victory), Ancient Waterfall, Dock Repair Bench & Return Boat.",
-            "OK"
-        );
+        if (showDialog)
+        {
+            EditorUtility.DisplayDialog(
+                "Phase 11 Final Treasure Island Complete",
+                "Built reusable textured Ancient Ruin & Waterfall prefabs (AncientTempleArch, AncientStonePillar, AncientTreasureChamber, AncientWaterfall) and updated BOTH scenes:\n" +
+                "- GameScene.unity: Added FinalIslandOverview + locked/unlockable BoatDockPoint_Final (Terrain 3)\n" +
+                "- IslandScene.unity: Built detailed FinalTreasureIsland (inactive by default; auto-activated on dock), 6 Final Chests (Hard quizzes -> Legendary Golden Crown & Victory), Ancient Waterfall, Dock Repair Bench & Return Boat.",
+                "OK"
+            );
+        }
     }
 
     private static void BuildFinalRuinsPrefabs(

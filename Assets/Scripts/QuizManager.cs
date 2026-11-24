@@ -81,6 +81,8 @@ public class QuizManager : MonoBehaviour
         GameStateManager state = GameStateManager.EnsureInstance();
         InventoryHotbarUI.EnsureInstance();
         MagicCompassUI.EnsureInstance();
+        GameAudioManager.EnsureInstance();
+        PauseAndSettingsUI.EnsureInstance();
         currentIslandIndex = Mathf.Clamp(state.currentIslandIndex, 0, 2);
 
         if (firstPersonMouseLook != null)
@@ -479,6 +481,7 @@ public class QuizManager : MonoBehaviour
         SetButtonColor(displayedCorrectAnswer, correctColor);
         if (quizBoardAnimator != null)
             quizBoardAnimator.PlayWrongFeedback();
+        GameAudioManager.EnsureInstance().PlayWrong();
 
         if (boatSink != null)
         {
@@ -519,6 +522,7 @@ public class QuizManager : MonoBehaviour
             SetButtonColor(answer, correctColor);
             if (quizBoardAnimator != null)
                 quizBoardAnimator.PlayCorrectFeedback();
+            GameAudioManager.EnsureInstance().PlayCorrect();
             if (questionText != null)
                 questionText.text = "Correct! The boat is safe!";
         }
@@ -528,6 +532,7 @@ public class QuizManager : MonoBehaviour
             SetButtonColor(displayedCorrectAnswer, correctColor);
             if (quizBoardAnimator != null)
                 quizBoardAnimator.PlayWrongFeedback();
+            GameAudioManager.EnsureInstance().PlayWrong();
 
             if (boatSink != null)
             {
@@ -671,6 +676,7 @@ public class QuizManager : MonoBehaviour
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
+        GameAudioManager.EnsureInstance().PlayGameOver();
 
         if (gameOverPanel != null)
             gameOverPanel.SetActive(true);

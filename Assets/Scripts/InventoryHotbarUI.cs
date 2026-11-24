@@ -161,6 +161,9 @@ public class InventoryHotbarUI : MonoBehaviour
         if (VictoryScreenUI.Instance != null && VictoryScreenUI.Instance.IsShowing)
             return true;
 
+        if (PauseAndSettingsUI.Instance != null && PauseAndSettingsUI.Instance.IsOpen)
+            return true;
+
         QuizManager oceanQuiz = FindFirstObjectByType<QuizManager>();
         if (oceanQuiz != null && (oceanQuiz.IsQuizActive || oceanQuiz.IsGameFinished))
             return true;
@@ -217,6 +220,7 @@ public class InventoryHotbarUI : MonoBehaviour
 
         if (ok)
         {
+            GameAudioManager.EnsureInstance().PlayRepair();
             BoatSink sink = FindFirstObjectByType<BoatSink>();
             if (sink != null)
                 sink.SyncFromGameState(true);
@@ -237,6 +241,7 @@ public class InventoryHotbarUI : MonoBehaviour
 
         if (ok)
         {
+            GameAudioManager.EnsureInstance().PlayRepair();
             BoatSink sink = FindFirstObjectByType<BoatSink>();
             if (sink != null)
                 sink.SyncFromGameState(true);

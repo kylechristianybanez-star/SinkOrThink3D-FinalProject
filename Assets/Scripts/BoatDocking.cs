@@ -126,6 +126,7 @@ public class BoatDocking : MonoBehaviour
         isTransitioning = true;
         HidePrompt();
         UpdateGuideText("");
+        GameAudioManager.EnsureInstance().PlayDocking();
 
         if (quizManager != null)
             quizManager.PauseForDocking();

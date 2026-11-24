@@ -14,6 +14,7 @@ public class FirstPersonMouseLook : MonoBehaviour
 
     void Awake()
     {
+        mouseSensitivity = PauseAndSettingsUI.GetSavedMouseSensitivity();
         SyncFromLocalRotation(transform.localRotation);
     }
 

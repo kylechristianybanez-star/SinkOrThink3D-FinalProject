@@ -113,6 +113,7 @@ public class VictoryScreenUI : MonoBehaviour
         if (cardRect != null)
             cardRect.localScale = Vector3.one * 0.82f;
 
+        GameAudioManager.EnsureInstance().PlayVictory();
         SpawnVictoryConfetti();
     }
 

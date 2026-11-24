@@ -60,7 +60,12 @@ public static class Phase10VikingIslandSetup
     [MenuItem("Tools/SinkOrThink3D/Phase 10 - Build Viking Island (GameScene + IslandScene)")]
     public static void BuildVikingIsland()
     {
-        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+        RunBuild(true);
+    }
+
+    public static void RunBuild(bool showDialog)
+    {
+        if (showDialog && !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             return;
 
         EnsureFolder("Assets/Prefabs");
@@ -100,13 +105,16 @@ public static class Phase10VikingIslandSetup
         AssetDatabase.SaveAssets();
 
         Debug.Log("Phase 10 Complete! Built Viking Island overview in GameScene.unity and detailed VikingIsland in IslandScene.unity.");
-        EditorUtility.DisplayDialog(
-            "Phase 10 Viking Island Complete",
-            "Built reusable textured Viking prefabs (with chimney smoke, waving flags, flickering torches, and solid colliders) and updated BOTH scenes:\n" +
-            "- GameScene.unity: Added VikingIslandOverview + locked/unlockable BoatDockPoint_Viking (Terrain 2)\n" +
-            "- IslandScene.unity: Built detailed VikingIsland (inactive by default; auto-activated on dock), 6 Viking Chests (Medium/Hard quizzes), Viking Dock Repair Bench & Return Boat.",
-            "OK"
-        );
+        if (showDialog)
+        {
+            EditorUtility.DisplayDialog(
+                "Phase 10 Viking Island Complete",
+                "Built reusable textured Viking prefabs (with chimney smoke, waving flags, flickering torches, and solid colliders) and updated BOTH scenes:\n" +
+                "- GameScene.unity: Added VikingIslandOverview + locked/unlockable BoatDockPoint_Viking (Terrain 2)\n" +
+                "- IslandScene.unity: Built detailed VikingIsland (inactive by default; auto-activated on dock), 6 Viking Chests (Medium/Hard quizzes), Viking Dock Repair Bench & Return Boat.",
+                "OK"
+            );
+        }
     }
 
     private static void BuildVikingPrefabs(
