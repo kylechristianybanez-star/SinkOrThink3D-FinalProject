@@ -46,15 +46,7 @@ public static class Phase6DiscoveryIslandSetup
         EnsureFolder(PrefabsFolder);
         EnsureFolder(MaterialsFolder);
 
-        Material goldMat = GetOrCreateLitMaterial("ChestGoldTrim.mat", new Color(0.95f, 0.76f, 0.22f, 1f), 0.9f, 0.7f);
-        Material auraMat = GetOrCreateEmissiveMaterial("SpecialChestAura.mat", new Color(1f, 0.85f, 0.28f, 1f), new Color(1f, 0.78f, 0.2f, 1f) * 2.1f);
-        Material stonePathMat = GetOrCreateLitMaterial("IslandPathStone.mat", new Color(0.56f, 0.53f, 0.47f, 1f), 0f, 0.15f);
-        Material sparkleMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/BoatSparkleParticle.mat");
-        if (sparkleMat == null)
-            sparkleMat = GetOrCreateParticleMaterial("BoatSparkleParticle.mat", new Color(1f, 0.86f, 0.32f, 0.9f));
-
-        GameObject regularChestPrefab = BuildChestPrefab(RegularChestPrefabPath, false, goldMat, auraMat, sparkleMat);
-        GameObject specialChestPrefab = BuildChestPrefab(SpecialChestPrefabPath, true, goldMat, auraMat, sparkleMat);
+        BuildOrLoadChestPrefabs(out GameObject regularChestPrefab, out GameObject specialChestPrefab);
 
         Scene islandScene = EditorSceneManager.OpenScene(IslandScenePath, OpenSceneMode.Single);
         Terrain terrain = Object.FindFirstObjectByType<Terrain>();
@@ -78,6 +70,8 @@ public static class Phase6DiscoveryIslandSetup
         GameObject chestsRoot = new GameObject("DiscoveryChests");
         SceneManager.MoveGameObjectToScene(chestsRoot, islandScene);
 
+        Material stonePathMat = GetOrCreateLitMaterial("IslandPathStone.mat", new Color(0.56f, 0.53f, 0.47f, 1f), 0f, 0.15f);
+        Material goldMat = GetOrCreateLitMaterial("ChestGoldTrim.mat", new Color(0.95f, 0.76f, 0.22f, 1f), 0.9f, 0.7f);
         PopulateDiscoveryEnvironment(envRoot.transform, terrain, stonePathMat, goldMat);
         PlaceDiscoveryChests(chestsRoot.transform, terrain, regularChestPrefab, specialChestPrefab, stonePathMat);
         DisableDecorativePointShadows(islandScene);
@@ -92,6 +86,21 @@ public static class Phase6DiscoveryIslandSetup
             "Built reusable Regular & Special Treasure Chest prefabs and populated Discovery Island with Bamboo Village, Campfire, Pathways, Swaying Palms/Bushes, Shoreline Crabs, and 6 Accessible Chests.\n\nIslandScene.unity has been saved!",
             "OK"
         );
+    }
+
+    public static void BuildOrLoadChestPrefabs(out GameObject regularChestPrefab, out GameObject specialChestPrefab)
+    {
+        EnsureFolder(PrefabsFolder);
+        EnsureFolder(MaterialsFolder);
+
+        Material goldMat = GetOrCreateLitMaterial("ChestGoldTrim.mat", new Color(0.95f, 0.76f, 0.22f, 1f), 0.9f, 0.7f);
+        Material auraMat = GetOrCreateEmissiveMaterial("SpecialChestAura.mat", new Color(1f, 0.85f, 0.28f, 1f), new Color(1f, 0.78f, 0.2f, 1f) * 2.1f);
+        Material sparkleMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/BoatSparkleParticle.mat");
+        if (sparkleMat == null)
+            sparkleMat = GetOrCreateParticleMaterial("BoatSparkleParticle.mat", new Color(1f, 0.86f, 0.32f, 0.9f));
+
+        regularChestPrefab = BuildChestPrefab(RegularChestPrefabPath, false, goldMat, auraMat, sparkleMat);
+        specialChestPrefab = BuildChestPrefab(SpecialChestPrefabPath, true, goldMat, auraMat, sparkleMat);
     }
 
     private static GameObject BuildChestPrefab(string outputPath, bool isSpecial, Material goldMat, Material auraMat, Material sparkleMat)

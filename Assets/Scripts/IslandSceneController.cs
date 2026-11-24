@@ -14,6 +14,14 @@ public class IslandSceneController : MonoBehaviour
     public IslandPlayerController player;
     public TMP_Text islandStatusText;
 
+    [Header("Reusable Island Environments")]
+    public GameObject discoveryIslandRoot;
+    public GameObject vikingIslandRoot;
+    public GameObject finalTreasureIslandRoot;
+    public Transform discoverySpawnPoint;
+    public Transform vikingSpawnPoint;
+    public Transform finalSpawnPoint;
+
     void OnEnable()
     {
         GameStateManager.OnStateChanged += RefreshHud;
@@ -29,23 +37,56 @@ public class IslandSceneController : MonoBehaviour
         Time.timeScale = 1f;
         GameStateManager state = GameStateManager.EnsureInstance();
         ScreenFader fader = ScreenFader.EnsureInstance();
+
+        int targetIdx = Mathf.Clamp(state.selectedIslandIndex, 0, 2);
+        ActivateSelectedIsland(targetIdx);
+
         InventoryHotbarUI.EnsureInstance();
-        MagicCompassUI.EnsureInstance();
-        ChestQuizManager.EnsureInScene(islandIndex);
+        MagicCompassUI compass = MagicCompassUI.EnsureInstance();
+        ChestQuizManager chestQuiz = ChestQuizManager.EnsureInScene(islandIndex);
+        chestQuiz.RefreshForIsland(islandIndex);
 
         CleanupDuplicateSceneSystems();
 
         if (player == null)
             player = FindFirstObjectByType<IslandPlayerController>();
 
-        if (player != null && playerSpawnPoint != null)
-            player.TeleportToSpawn(playerSpawnPoint.position, playerSpawnPoint.rotation);
+        if (player != null)
+        {
+            if (playerSpawnPoint != null)
+                player.TeleportToSpawn(playerSpawnPoint.position, playerSpawnPoint.rotation);
+            player.RefreshInteractables();
+        }
+
+        compass.RefreshTargetsNow();
 
         if (islandStatusText != null)
             islandStatusText.raycastTarget = false;
 
         RefreshHud();
         fader.ShowArrivalBanner("Exploring " + islandDisplayName, 2.2f);
+    }
+
+    private void ActivateSelectedIsland(int targetIdx)
+    {
+        GameObject[] roots = new GameObject[] { discoveryIslandRoot, vikingIslandRoot, finalTreasureIslandRoot };
+        Transform[] spawns = new Transform[] { discoverySpawnPoint, vikingSpawnPoint, finalSpawnPoint };
+
+        // Fall back safely to DiscoveryIsland if the target island isn't built yet
+        if (roots[targetIdx] == null)
+            targetIdx = 0;
+
+        for (int i = 0; i < roots.Length; i++)
+        {
+            if (roots[i] != null)
+                roots[i].SetActive(i == targetIdx);
+        }
+
+        islandIndex = targetIdx;
+        islandDisplayName = GameStateManager.EnsureInstance().GetIslandDisplayName(targetIdx);
+
+        if (spawns[targetIdx] != null)
+            playerSpawnPoint = spawns[targetIdx];
     }
 
     public void RefreshHud()

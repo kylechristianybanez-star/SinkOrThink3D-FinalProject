@@ -29,6 +29,18 @@ public static class Phase3BoatAndBoardSetup
                 return;
         }
 
+        int configuredItems = ApplyToScene(activeScene);
+
+        Debug.Log("Phase 3 Setup complete on " + configuredItems + " target root(s). Press Ctrl+S to save GameScene.");
+        EditorUtility.DisplayDialog(
+            "Phase 3 Setup Complete",
+            "Configured realistic wooden/brass Quiz Board details, Boat animations, and lightweight URP ParticleSystems.\n\nPress Ctrl+S in Unity to save GameScene!",
+            "OK"
+        );
+    }
+
+    public static int ApplyToScene(Scene activeScene)
+    {
         EnsureFolder(MaterialsFolder);
 
         Texture2D plankTex = AssetDatabase.LoadAssetAtPath<Texture2D>(PlankTexturePath);
@@ -71,13 +83,7 @@ public static class Phase3BoatAndBoardSetup
 
         AssetDatabase.SaveAssets();
         EditorSceneManager.MarkSceneDirty(activeScene);
-
-        Debug.Log("Phase 3 Setup complete on " + configuredItems + " target root(s). Press Ctrl+S to save GameScene.");
-        EditorUtility.DisplayDialog(
-            "Phase 3 Setup Complete",
-            "Configured realistic wooden/brass Quiz Board details, Boat animations, and lightweight URP ParticleSystems.\n\nPress Ctrl+S in Unity to save GameScene!",
-            "OK"
-        );
+        return configuredItems;
     }
 
     private static void ConfigureQuizBoard(

@@ -33,6 +33,18 @@ public static class Phase4OceanAndDockSetup
                 return;
         }
 
+        int optimizedLights = ApplyToScene(activeScene);
+
+        Debug.Log("Phase 4 Setup complete! Disabled realtime shadows on " + optimizedLights + " decorative point/spot lights. Press Ctrl+S to save GameScene.");
+        EditorUtility.DisplayDialog(
+            "Phase 4 Setup Complete",
+            "Configured Ocean animation & fog, Dock mooring posts/lanterns/guide buoy, Dock Prompt UI, and fixed the Shadow Atlas warning (" + optimizedLights + " decorative point/spot lights optimized).\n\nPress Ctrl+S in Unity to save GameScene!",
+            "OK"
+        );
+    }
+
+    public static int ApplyToScene(Scene activeScene)
+    {
         EnsureFolder(MaterialsFolder);
 
         int optimizedLights = FixAdditionalLightShadows(activeScene);
@@ -41,13 +53,7 @@ public static class Phase4OceanAndDockSetup
 
         AssetDatabase.SaveAssets();
         EditorSceneManager.MarkSceneDirty(activeScene);
-
-        Debug.Log("Phase 4 Setup complete! Disabled realtime shadows on " + optimizedLights + " decorative point/spot lights. Press Ctrl+S to save GameScene.");
-        EditorUtility.DisplayDialog(
-            "Phase 4 Setup Complete",
-            "Configured Ocean animation & fog, Dock mooring posts/lanterns/guide buoy, Dock Prompt UI, and fixed the Shadow Atlas warning (" + optimizedLights + " decorative point/spot lights optimized).\n\nPress Ctrl+S in Unity to save GameScene!",
-            "OK"
-        );
+        return optimizedLights;
     }
 
     private static int FixAdditionalLightShadows(Scene scene)

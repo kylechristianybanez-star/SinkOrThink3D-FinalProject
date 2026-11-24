@@ -12,12 +12,14 @@ public class BoatDocking : MonoBehaviour
     public float dockingDistance = 9.5f;
 
     [Header("Docking Alignment & Scene Transition")]
+    public int islandIndex = 0;
     public Transform dockParkingPoint;
+    public Transform boatReturnSpawnPoint;
     public QuizManager quizManager;
-    public bool autoMatchCurrentIsland = true;
+    public bool autoMatchCurrentIsland = false;
     public string islandDisplayName = "Discovery Island";
     public string targetIslandSceneName = "IslandScene";
-    public bool transitionToIslandScene = false;
+    public bool transitionToIslandScene = true;
     public float alignDuration = 1.35f;
 
     [Header("Docking UI")]
@@ -70,10 +72,13 @@ public class BoatDocking : MonoBehaviour
         Vector2 boatXZ = new Vector2(boat.transform.position.x, boat.transform.position.z);
         float distance = Vector2.Distance(dockXZ, boatXZ);
 
+        GameStateManager state = GameStateManager.EnsureInstance();
+        bool isActiveTargetIsland = (islandIndex == state.currentIslandIndex);
+
         bool quizActive = quizManager != null && quizManager.IsQuizActive;
-        if (!isDocked && !quizActive)
+        if (isActiveTargetIsland && !isDocked && !quizActive)
             UpdateGuideText(islandDisplayName + " Dock: " + Mathf.RoundToInt(distance) + "m");
-        else
+        else if (isActiveTargetIsland)
             UpdateGuideText("");
 
         if (isDocked)
@@ -92,7 +97,14 @@ public class BoatDocking : MonoBehaviour
 
         if (distance <= dockingDistance)
         {
-            bool eligible = quizManager == null || quizManager.CanDockNow();
+            if (!state.IsIslandUnlocked(islandIndex))
+            {
+                string prevName = state.GetIslandDisplayName(Mathf.Max(0, islandIndex - 1));
+                ShowPrompt("Locked! Complete " + prevName + " first!");
+                return;
+            }
+
+            bool eligible = !isActiveTargetIsland || quizManager == null || quizManager.CanDockNow();
             if (!eligible)
             {
                 ShowPrompt("Complete 1 Ocean Quiz Round before docking!");
@@ -187,9 +199,13 @@ public class BoatDocking : MonoBehaviour
 
         if (transitionToIslandScene && !string.IsNullOrEmpty(targetIslandSceneName))
         {
+            GameStateManager state = GameStateManager.EnsureInstance();
+            state.selectedIslandIndex = islandIndex;
+            state.lastDockedIslandIndex = islandIndex;
+
             BoatSink sink = boat.GetComponent<BoatSink>();
             if (sink != null)
-                GameStateManager.EnsureInstance().SetBoatHealth(sink.currentHealth);
+                state.SetBoatHealth(sink.currentHealth);
 
             yield return new WaitForSeconds(0.5f);
             fader.FadeAndLoadScene(targetIslandSceneName, 0.7f);

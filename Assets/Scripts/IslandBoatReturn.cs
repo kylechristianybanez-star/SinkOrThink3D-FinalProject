@@ -52,6 +52,7 @@ public class IslandBoatReturn : IslandInteractable
             player.SetControlsEnabled(false);
 
         GameStateManager state = GameStateManager.EnsureInstance();
+        state.lastDockedIslandIndex = islandIndex;
         state.returningFromIsland = true;
         bool advanced = state.TryAdvanceToNextIsland();
 

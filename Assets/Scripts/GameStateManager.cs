@@ -40,6 +40,8 @@ public class GameStateManager : MonoBehaviour
 
     [Header("Progression")]
     public int currentIslandIndex = 0; // 0 = Discovery, 1 = Viking, 2 = Final Treasure
+    public int selectedIslandIndex = 0;
+    public int lastDockedIslandIndex = 0;
     public bool returningFromIsland = false;
     public int[] oceanRoundsCompletedForIsland = new int[3];
     public bool[] completedIslandSpecialChest = new bool[3];
@@ -127,6 +129,8 @@ public class GameStateManager : MonoBehaviour
         EnsureArraySizes();
 
         currentIslandIndex = 0;
+        selectedIslandIndex = 0;
+        lastDockedIslandIndex = 0;
         returningFromIsland = false;
         boatHealth = maxBoatHealth;
         coins = 0;
@@ -216,12 +220,12 @@ public class GameStateManager : MonoBehaviour
 
     public string GetIslandSceneName(int islandIndex)
     {
-        switch (islandIndex)
-        {
-            case 1: return "VikingIslandScene";
-            case 2: return "FinalIslandScene";
-            default: return "IslandScene";
-        }
+        return "IslandScene";
+    }
+
+    public bool IsIslandUnlocked(int islandIndex)
+    {
+        return islandIndex >= 0 && islandIndex <= currentIslandIndex;
     }
 
     public bool TryAdvanceToNextIsland()

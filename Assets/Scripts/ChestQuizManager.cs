@@ -102,6 +102,12 @@ public class ChestQuizManager : MonoBehaviour
         GameStateManager.EnsureInstance().EnsureIslandRewardsAssigned(islandIndex, regularIds.ToArray());
     }
 
+    public void RefreshForIsland(int targetIslandIndex)
+    {
+        islandIndex = targetIslandIndex;
+        AssignIslandChestRewards();
+    }
+
     private void HandleChestInteract(TreasureChest chest, IslandPlayerController player)
     {
         if (chest == null || chest.IsOpened || isOpen)

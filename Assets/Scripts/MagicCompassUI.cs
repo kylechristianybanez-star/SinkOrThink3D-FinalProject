@@ -117,6 +117,12 @@ public class MagicCompassUI : MonoBehaviour
         RefreshVisibility();
     }
 
+    public void RefreshTargetsNow()
+    {
+        RefreshSceneTargets();
+        RefreshVisibility();
+    }
+
     private void RefreshSceneTargets()
     {
         cachedPlayer = FindFirstObjectByType<IslandPlayerController>();
