@@ -8,7 +8,7 @@ using TMPro;
 
 /// <summary>
 /// Runs the ocean travel and 5-question quiz rounds, handles single-click 3D answer input,
-/// randomizes questions and A-D answer choices, and triggers damage or Game Over.
+/// randomizes questions and A-D answer choices, triggers board animations, and manages Game Over.
 /// </summary>
 public class QuizManager : MonoBehaviour
 {
@@ -44,6 +44,7 @@ public class QuizManager : MonoBehaviour
     public int questionsPerRound = 5;
     public int requiredRoundsBeforeDock = 1;
     public TMP_Text questionCounterText;
+    public QuizBoardAnimator quizBoardAnimator;
     public Color correctColor = new Color(0.2f, 0.78f, 0.3f);
     public Color wrongColor = new Color(0.85f, 0.22f, 0.22f);
     public Color hoverTintColor = new Color(1f, 0.92f, 0.65f);
@@ -99,6 +100,13 @@ public class QuizManager : MonoBehaviour
 
         if (buttonA != null && buttonA.material != null)
             originalColor = buttonA.material.color;
+
+        if (quizBoard != null && quizBoardAnimator == null)
+        {
+            quizBoardAnimator = quizBoard.GetComponent<QuizBoardAnimator>();
+            if (quizBoardAnimator == null)
+                quizBoardAnimator = quizBoard.AddComponent<QuizBoardAnimator>();
+        }
 
         CacheAnswerButtons();
 
@@ -313,6 +321,9 @@ public class QuizManager : MonoBehaviour
         if (boatMovement != null)
             boatMovement.canMove = true;
 
+        if (quizBoardAnimator != null)
+            quizBoardAnimator.ResetVisualState();
+
         if (quizBoard != null)
             quizBoard.SetActive(false);
 
@@ -361,8 +372,17 @@ public class QuizManager : MonoBehaviour
         ClearHover();
         ResetButtonColors();
 
+        bool wasHidden = quizBoard != null && !quizBoard.activeInHierarchy;
         if (quizBoard != null)
             quizBoard.SetActive(true);
+
+        if (quizBoardAnimator != null)
+        {
+            if (wasHidden)
+                quizBoardAnimator.PlayAppear();
+            else
+                quizBoardAnimator.PlayNextQuestionPulse();
+        }
 
         if (questionPosition >= questionOrder.Count)
             ShuffleQuestions();
@@ -372,7 +392,6 @@ public class QuizManager : MonoBehaviour
 
         QuizQuestion q = activeQuestionPool[activeQuestionIndex];
 
-        // Randomize A-D answer placement on every question.
         for (int i = 0; i < 4; i++)
             choiceShuffle[i] = i;
 
@@ -455,6 +474,8 @@ public class QuizManager : MonoBehaviour
         }
 
         SetButtonColor(displayedCorrectAnswer, correctColor);
+        if (quizBoardAnimator != null)
+            quizBoardAnimator.PlayWrongFeedback();
 
         if (boatSink != null)
         {
@@ -493,6 +514,8 @@ public class QuizManager : MonoBehaviour
         if (answer == displayedCorrectAnswer)
         {
             SetButtonColor(answer, correctColor);
+            if (quizBoardAnimator != null)
+                quizBoardAnimator.PlayCorrectFeedback();
             if (questionText != null)
                 questionText.text = "Correct! The boat is safe!";
         }
@@ -500,6 +523,8 @@ public class QuizManager : MonoBehaviour
         {
             SetButtonColor(answer, wrongColor);
             SetButtonColor(displayedCorrectAnswer, correctColor);
+            if (quizBoardAnimator != null)
+                quizBoardAnimator.PlayWrongFeedback();
 
             if (boatSink != null)
             {
@@ -585,6 +610,9 @@ public class QuizManager : MonoBehaviour
             nextQuestionCoroutine = null;
         }
 
+        if (quizBoardAnimator != null)
+            quizBoardAnimator.ResetVisualState();
+
         if (quizBoard != null)
             quizBoard.SetActive(false);
 
@@ -613,6 +641,9 @@ public class QuizManager : MonoBehaviour
 
         if (boatMovement != null)
             boatMovement.StopBoat();
+
+        if (quizBoardAnimator != null)
+            quizBoardAnimator.ResetVisualState();
 
         if (quizBoard != null)
             quizBoard.SetActive(false);

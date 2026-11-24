@@ -1,7 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Controls boat steering and forward/reverse travel using a kinematic Rigidbody.
+/// Controls boat steering and forward/reverse travel using a kinematic Rigidbody,
+/// while applying smooth ocean floating/rocking offsets from BoatAnimator.
 /// </summary>
 public class BoatMovement : MonoBehaviour
 {
@@ -12,13 +13,28 @@ public class BoatMovement : MonoBehaviour
 
     private Rigidbody rb;
     private BoatSink boatSink;
+    private BoatAnimator boatAnimator;
+    private QuizManager quizManager;
+
     private float move;
     private float turn;
+    private float baseWaterY;
+    private float currentYaw;
+
+    public float CurrentMoveInput => move;
+    public float CurrentTurnInput => turn;
 
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
         boatSink = GetComponent<BoatSink>();
+        boatAnimator = GetComponent<BoatAnimator>();
+        SyncBaseTransform();
+    }
+
+    void Start()
+    {
+        quizManager = FindFirstObjectByType<QuizManager>();
     }
 
     void Update()
@@ -36,42 +52,53 @@ public class BoatMovement : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (!canMove || rb == null || Time.timeScale == 0f)
+        if (rb == null || Time.timeScale == 0f)
             return;
 
         if (boatSink != null && (boatSink.isSinking || boatSink.currentHealth <= 0))
             return;
 
-        // Turn the boat left or right.
-        Quaternion rotation = rb.rotation *
-            Quaternion.Euler(
-                0f,
-                turn * turnSpeed * Time.fixedDeltaTime,
-                0f
-            );
+        Vector3 targetHorizontalPos = new Vector3(rb.position.x, baseWaterY, rb.position.z);
 
-        rb.MoveRotation(rotation);
-
-        // Move the boat forward or slower in reverse.
-        float speedMultiplier = move < 0f ? reverseSpeedMultiplier : 1f;
-        Vector3 movement = transform.forward *
-            (move * speedMultiplier) * moveSpeed * Time.fixedDeltaTime;
-
-        // Check for solid obstacles (ignore trigger volumes) before moving.
-        if (movement.sqrMagnitude > 0.000001f)
+        if (canMove)
         {
-            if (rb.SweepTest(
-                movement.normalized,
-                out RaycastHit hit,
-                movement.magnitude + 0.01f,
-                QueryTriggerInteraction.Ignore
-            ))
+            currentYaw += turn * turnSpeed * Time.fixedDeltaTime;
+
+            float speedMultiplier = move < 0f ? reverseSpeedMultiplier : 1f;
+            Vector3 horizontalForward = new Vector3(transform.forward.x, 0f, transform.forward.z).normalized;
+            Vector3 movement = horizontalForward * (move * speedMultiplier) * moveSpeed * Time.fixedDeltaTime;
+
+            if (movement.sqrMagnitude > 0.000001f)
             {
-                return;
+                if (!rb.SweepTest(
+                    movement.normalized,
+                    out RaycastHit hit,
+                    movement.magnitude + 0.01f,
+                    QueryTriggerInteraction.Ignore
+                ))
+                {
+                    targetHorizontalPos += movement;
+                }
             }
         }
 
-        rb.MovePosition(rb.position + movement);
+        bool isQuizActive = quizManager != null && quizManager.IsQuizActive;
+        float waveBob = boatAnimator != null ? boatAnimator.GetWaveBobOffset(isQuizActive) : 0f;
+        Quaternion waveTilt = boatAnimator != null
+            ? boatAnimator.GetWaveTiltRotation(canMove ? move : 0f, canMove ? turn : 0f, isQuizActive)
+            : Quaternion.identity;
+
+        Quaternion targetRotation = Quaternion.Euler(0f, currentYaw, 0f) * waveTilt;
+        Vector3 finalPosition = new Vector3(targetHorizontalPos.x, baseWaterY + waveBob, targetHorizontalPos.z);
+
+        rb.MoveRotation(targetRotation);
+        rb.MovePosition(finalPosition);
+    }
+
+    public void SyncBaseTransform()
+    {
+        baseWaterY = transform.position.y;
+        currentYaw = transform.eulerAngles.y;
     }
 
     public void StopBoat()

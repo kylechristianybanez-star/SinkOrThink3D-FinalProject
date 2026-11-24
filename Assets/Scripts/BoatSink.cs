@@ -27,6 +27,7 @@ public class BoatSink : MonoBehaviour
     private float startY = 0f;
     private Quaternion startRotation;
     private Rigidbody rb;
+    private BoatAnimator boatAnimator;
 
     void Start()
     {
@@ -39,6 +40,7 @@ public class BoatSink : MonoBehaviour
         startY = transform.position.y;
         startRotation = transform.rotation;
         rb = GetComponent<Rigidbody>();
+        boatAnimator = GetComponent<BoatAnimator>();
 
         if (healthBar != null)
         {
@@ -108,6 +110,9 @@ public class BoatSink : MonoBehaviour
         GameStateManager state = GameStateManager.EnsureInstance();
         currentHealth = state.DamageBoat(amount);
 
+        if (boatAnimator != null)
+            boatAnimator.PlayDamageSplash();
+
         if (currentHealth <= 0)
         {
             currentHealth = 0;
@@ -128,7 +133,11 @@ public class BoatSink : MonoBehaviour
         currentHealth = state.boatHealth;
 
         if (restored > 0)
+        {
             UpdateHealthText();
+            if (boatAnimator != null)
+                boatAnimator.PlayRepairEffect();
+        }
 
         return restored;
     }
