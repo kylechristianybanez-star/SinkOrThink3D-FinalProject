@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -25,6 +26,7 @@ public class GameStateManager : MonoBehaviour
     public bool hasMagicCompass = false;
     public bool hasGoldenCrown = false;
     public bool[] hasIslandKey = new bool[3];
+    public List<string> openedChestIds = new List<string>();
 
     // Approved boat repair values (Master Prompt Section 22)
     public const int PlankHealAmount = 10;
@@ -99,6 +101,11 @@ public class GameStateManager : MonoBehaviour
             completedIslandSpecialChest[i] = false;
             hasIslandKey[i] = false;
         }
+
+        if (openedChestIds == null)
+            openedChestIds = new List<string>();
+        else
+            openedChestIds.Clear();
     }
 
     public void SetBoatHealth(int value)
@@ -179,5 +186,25 @@ public class GameStateManager : MonoBehaviour
 
         currentIslandIndex++;
         return true;
+    }
+
+    public bool IsChestOpened(string chestId)
+    {
+        if (string.IsNullOrEmpty(chestId) || openedChestIds == null)
+            return false;
+
+        return openedChestIds.Contains(chestId);
+    }
+
+    public void MarkChestOpened(string chestId)
+    {
+        if (string.IsNullOrEmpty(chestId))
+            return;
+
+        if (openedChestIds == null)
+            openedChestIds = new List<string>();
+
+        if (!openedChestIds.Contains(chestId))
+            openedChestIds.Add(chestId);
     }
 }
