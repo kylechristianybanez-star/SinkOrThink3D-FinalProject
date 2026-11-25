@@ -25,7 +25,7 @@ public class VictoryScreenUI : MonoBehaviour
         if (Instance != null)
             return Instance;
 
-        VictoryScreenUI existing = FindFirstObjectByType<VictoryScreenUI>();
+        VictoryScreenUI existing = FindAnyObjectByType<VictoryScreenUI>();
         if (existing != null)
         {
             Instance = existing;
@@ -95,11 +95,12 @@ public class VictoryScreenUI : MonoBehaviour
             return;
 
         isActionPending = false;
+        GameStateManager.ClearSavedProgress();
 
         if (InventoryHotbarUI.Instance != null && InventoryHotbarUI.Instance.IsInventoryOpen)
             InventoryHotbarUI.Instance.SetInventoryOpen(false);
 
-        IslandPlayerController player = FindFirstObjectByType<IslandPlayerController>();
+        IslandPlayerController player = FindAnyObjectByType<IslandPlayerController>();
         if (player != null)
             player.SetControlsEnabled(false);
 
@@ -114,6 +115,7 @@ public class VictoryScreenUI : MonoBehaviour
             cardRect.localScale = Vector3.one * 0.82f;
 
         GameAudioManager.EnsureInstance().PlayVictory();
+        GameAudioManager.EnsureInstance().SetVictoryMusic();
         SpawnVictoryConfetti();
     }
 
@@ -135,14 +137,14 @@ public class VictoryScreenUI : MonoBehaviour
 
         int totalChestsOpened = state.openedChestIds != null ? state.openedChestIds.Count : 0;
         string compassStatus = state.hasMagicCompass ? "Unlocked" : "Not Found";
+        int acc = Mathf.RoundToInt(state.GetAccuracyPercent());
 
         statsText.text =
-            "Islands Conquered:  " + conqueredCount + " / 3\n" +
-            "Total Treasure Chests Opened:  " + totalChestsOpened + " / 18\n" +
-            "Final Gold Coins:  " + state.coins + "\n" +
-            "Remaining Supplies:  " + state.planks + " Planks  |  " + state.potions + " Potions\n" +
-            "Final Boat Health:  " + state.boatHealth + " / " + state.maxBoatHealth + "\n" +
-            "Magic Compass:  " + compassStatus;
+            "Navigator Rank:  " + state.GetNavigatorRank() + "\n" +
+            "Quiz Accuracy:  " + acc + "% (" + state.totalQuestionsCorrect + "/" + state.totalQuestionsAnswered + ")  |  Best Streak: " + state.bestStreak + "\n" +
+            "Voyage Time:  " + state.GetFormattedPlayTime() + "  |  Islands Conquered: " + conqueredCount + "/3\n" +
+            "Treasure Chests:  " + totalChestsOpened + "/18  |  Gold Coins: " + state.coins + "\n" +
+            "Supplies:  " + state.planks + " Planks, " + state.potions + " Potions  |  Boat HP: " + state.boatHealth + "/" + state.maxBoatHealth + "  |  Compass: " + compassStatus;
     }
 
     private void OnPlayAgainClicked()
@@ -156,6 +158,7 @@ public class VictoryScreenUI : MonoBehaviour
 
         Time.timeScale = 1f;
         GameStateManager.EnsureInstance().StartNewGame();
+        GameAudioManager.EnsureInstance().SetAdventureMusic();
         ScreenFader.EnsureInstance().FadeAndLoadScene("GameScene", 0.7f);
     }
 
@@ -170,6 +173,7 @@ public class VictoryScreenUI : MonoBehaviour
 
         Time.timeScale = 1f;
         GameStateManager.EnsureInstance().StartNewGame();
+        GameAudioManager.EnsureInstance().SetAdventureMusic();
         ScreenFader.EnsureInstance().FadeAndLoadScene("MainMenu", 0.7f);
     }
 
@@ -184,8 +188,9 @@ public class VictoryScreenUI : MonoBehaviour
         confettiGo.transform.rotation = Quaternion.Euler(-75f, cam.transform.eulerAngles.y, 0f);
 
         ParticleSystem ps = confettiGo.AddComponent<ParticleSystem>();
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         ParticleSystem.MainModule main = ps.main;
-        main.playOnAwake = true;
+        main.playOnAwake = false;
         main.loop = false;
         main.duration = 2.5f;
         main.startLifetime = 2.6f;
@@ -210,7 +215,9 @@ public class VictoryScreenUI : MonoBehaviour
         ParticleSystemRenderer pr = confettiGo.GetComponent<ParticleSystemRenderer>();
         if (pr != null)
         {
-            Shader particleShader = Shader.Find("Universal Render Pipeline/Particles/Unlit") ?? Shader.Find("Particles/Standard Unlit");
+            Shader particleShader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            if (particleShader == null)
+                particleShader = Shader.Find("Particles/Standard Unlit");
             if (particleShader != null)
             {
                 Material mat = new Material(particleShader);
@@ -220,6 +227,7 @@ public class VictoryScreenUI : MonoBehaviour
             }
         }
 
+        ps.Play();
         Destroy(confettiGo, 4f);
     }
 
@@ -278,7 +286,7 @@ public class VictoryScreenUI : MonoBehaviour
         statsHeader.text = "ADVENTURE SUMMARY";
         statsHeader.raycastTarget = false;
 
-        statsText = CreateText(summaryBox.transform, "StatsDetails", new Vector2(0f, -18f), new Vector2(660f, 165f), 20f, FontStyles.Bold, new Color(0.18f, 0.12f, 0.06f, 1f));
+        statsText = CreateText(summaryBox.transform, "StatsDetails", new Vector2(0f, -18f), new Vector2(690f, 175f), 18f, FontStyles.Bold, new Color(0.18f, 0.12f, 0.06f, 1f));
         statsText.raycastTarget = false;
 
         // Play Again & Main Menu buttons

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public enum ChestRewardType
 {
@@ -58,14 +59,64 @@ public class GameStateManager : MonoBehaviour
     public bool hasGoldenCrown = false;
     public bool[] hasIslandKey = new bool[3];
     public bool[] islandRewardsAssigned = new bool[3];
+    public bool[] completedNpcGuides = new bool[3];
     public List<string> openedChestIds = new List<string>();
     public List<ChestRewardAssignment> chestRewards = new List<ChestRewardAssignment>();
 
-    // Approved boat repair values (Master Prompt Section 22)
+    [Header("Voyage Analytics")]
+    public int totalQuestionsAnswered = 0;
+    public int totalQuestionsCorrect = 0;
+    public int currentStreak = 0;
+    public int bestStreak = 0;
+    public float playTimeSeconds = 0f;
+
+    // Approved boat repair & hint values
     public const int PlankHealAmount = 10;
     public const int PotionHealAmount = 25;
     public const int CoinRepairCost = 10;
     public const int CoinRepairHealAmount = 20;
+    public const int HintLifelineCost = 10;
+    private const string SaveKey = "SinkOrThink3D_SaveData_v1";
+
+    [Serializable]
+    private class SavePayload
+    {
+        public int currentIslandIndex;
+        public int selectedIslandIndex;
+        public int lastDockedIslandIndex;
+        public int boatHealth;
+        public int coins;
+        public int planks;
+        public int potions;
+        public bool hasMagicCompass;
+        public bool hasGoldenCrown;
+        public int totalQuestionsAnswered;
+        public int totalQuestionsCorrect;
+        public int currentStreak;
+        public int bestStreak;
+        public float playTimeSeconds;
+        public int[] oceanRoundsCompletedForIsland;
+        public bool[] completedIslandSpecialChest;
+        public bool[] hasIslandKey;
+        public bool[] islandRewardsAssigned;
+        public bool[] completedNpcGuides;
+        public List<string> openedChestIds;
+        public List<ChestRewardAssignment> chestRewards;
+    }
+
+    void Update()
+    {
+        if (Time.timeScale <= 0f)
+            return;
+
+        if ((GameOverUI.Instance != null && GameOverUI.Instance.IsShowing) ||
+            (VictoryScreenUI.Instance != null && VictoryScreenUI.Instance.IsShowing))
+            return;
+
+        string sceneName = SceneManager.GetActiveScene().name;
+        if (string.Equals(sceneName, "GameScene") || string.Equals(sceneName, "IslandScene"))
+            playTimeSeconds += Time.deltaTime;
+    }
 
     void Awake()
     {
@@ -88,7 +139,7 @@ public class GameStateManager : MonoBehaviour
         if (Instance != null)
             return Instance;
 
-        GameStateManager existing = FindFirstObjectByType<GameStateManager>();
+        GameStateManager existing = FindAnyObjectByType<GameStateManager>();
         if (existing != null)
         {
             Instance = existing;
@@ -114,6 +165,9 @@ public class GameStateManager : MonoBehaviour
         if (islandRewardsAssigned == null || islandRewardsAssigned.Length != 3)
             islandRewardsAssigned = new bool[3];
 
+        if (completedNpcGuides == null || completedNpcGuides.Length != 3)
+            completedNpcGuides = new bool[3];
+
         if (openedChestIds == null)
             openedChestIds = new List<string>();
 
@@ -122,7 +176,7 @@ public class GameStateManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Resets all health, progression, keys, and inventory for a fresh New Game.
+    /// Resets all health, progression, keys, analytics, and inventory for a fresh New Game.
     /// </summary>
     public void StartNewGame()
     {
@@ -138,6 +192,11 @@ public class GameStateManager : MonoBehaviour
         potions = 0;
         hasMagicCompass = false;
         hasGoldenCrown = false;
+        totalQuestionsAnswered = 0;
+        totalQuestionsCorrect = 0;
+        currentStreak = 0;
+        bestStreak = 0;
+        playTimeSeconds = 0f;
 
         for (int i = 0; i < 3; i++)
         {
@@ -145,10 +204,12 @@ public class GameStateManager : MonoBehaviour
             completedIslandSpecialChest[i] = false;
             hasIslandKey[i] = false;
             islandRewardsAssigned[i] = false;
+            completedNpcGuides[i] = false;
         }
 
         openedChestIds.Clear();
         chestRewards.Clear();
+        ClearSavedProgress();
         NotifyStateChanged();
     }
 
@@ -539,5 +600,164 @@ public class GameStateManager : MonoBehaviour
             return "Objective: Unlock " + GetIslandDisplayName(idx) + "'s Special Chest with your Golden Key!";
 
         return "Objective: Explore chests to find " + GetIslandDisplayName(idx) + "'s Golden Key.";
+    }
+
+    public int RecordQuizResult(bool isCorrect)
+    {
+        totalQuestionsAnswered++;
+        if (isCorrect)
+        {
+            totalQuestionsCorrect++;
+            currentStreak++;
+            if (currentStreak > bestStreak)
+                bestStreak = currentStreak;
+        }
+        else
+        {
+            currentStreak = 0;
+        }
+
+        NotifyStateChanged();
+        return currentStreak;
+    }
+
+    public bool TrySpendHintCoins(out string feedback)
+    {
+        if (coins < HintLifelineCost)
+        {
+            feedback = "Need " + HintLifelineCost + " Coins for a 50/50 Hint (You have " + coins + ").";
+            return false;
+        }
+
+        coins = Mathf.Max(0, coins - HintLifelineCost);
+        NotifyStateChanged();
+        feedback = "50/50 Hint activated (-" + HintLifelineCost + " Coins)!";
+        return true;
+    }
+
+    public float GetAccuracyPercent()
+    {
+        if (totalQuestionsAnswered <= 0)
+            return 0f;
+        return (100f * totalQuestionsCorrect) / totalQuestionsAnswered;
+    }
+
+    public string GetNavigatorRank()
+    {
+        float acc = GetAccuracyPercent();
+        if (totalQuestionsAnswered == 0)
+            return "Cadet";
+        if (acc >= 90f)
+            return "S-Rank (Master Navigator)";
+        if (acc >= 75f)
+            return "A-Rank (Skilled Captain)";
+        if (acc >= 60f)
+            return "B-Rank (Bold Explorer)";
+        return "C-Rank (Sea Deckhand)";
+    }
+
+    public string GetFormattedPlayTime()
+    {
+        int totalSec = Mathf.Max(0, Mathf.FloorToInt(playTimeSeconds));
+        int mins = totalSec / 60;
+        int secs = totalSec % 60;
+        return mins.ToString("00") + ":" + secs.ToString("00");
+    }
+
+    public static bool HasSavedProgress()
+    {
+        return PlayerPrefs.HasKey(SaveKey) && !string.IsNullOrEmpty(PlayerPrefs.GetString(SaveKey, ""));
+    }
+
+    public static void ClearSavedProgress()
+    {
+        if (PlayerPrefs.HasKey(SaveKey))
+        {
+            PlayerPrefs.DeleteKey(SaveKey);
+            PlayerPrefs.Save();
+        }
+    }
+
+    public void SaveProgress()
+    {
+        if (boatHealth <= 0 || hasGoldenCrown)
+            return;
+
+        EnsureArraySizes();
+        SavePayload payload = new SavePayload
+        {
+            currentIslandIndex = currentIslandIndex,
+            selectedIslandIndex = selectedIslandIndex,
+            lastDockedIslandIndex = lastDockedIslandIndex,
+            boatHealth = boatHealth,
+            coins = coins,
+            planks = planks,
+            potions = potions,
+            hasMagicCompass = hasMagicCompass,
+            hasGoldenCrown = hasGoldenCrown,
+            totalQuestionsAnswered = totalQuestionsAnswered,
+            totalQuestionsCorrect = totalQuestionsCorrect,
+            currentStreak = currentStreak,
+            bestStreak = bestStreak,
+            playTimeSeconds = playTimeSeconds,
+            oceanRoundsCompletedForIsland = (int[])oceanRoundsCompletedForIsland.Clone(),
+            completedIslandSpecialChest = (bool[])completedIslandSpecialChest.Clone(),
+            hasIslandKey = (bool[])hasIslandKey.Clone(),
+            islandRewardsAssigned = (bool[])islandRewardsAssigned.Clone(),
+            completedNpcGuides = (bool[])completedNpcGuides.Clone(),
+            openedChestIds = new List<string>(openedChestIds),
+            chestRewards = new List<ChestRewardAssignment>(chestRewards)
+        };
+
+        PlayerPrefs.SetString(SaveKey, JsonUtility.ToJson(payload));
+        PlayerPrefs.Save();
+    }
+
+    public bool LoadProgress()
+    {
+        if (!HasSavedProgress())
+            return false;
+
+        string json = PlayerPrefs.GetString(SaveKey, "");
+        if (string.IsNullOrEmpty(json))
+            return false;
+
+        SavePayload payload = JsonUtility.FromJson<SavePayload>(json);
+        if (payload == null)
+            return false;
+
+        EnsureArraySizes();
+        currentIslandIndex = Mathf.Clamp(payload.currentIslandIndex, 0, 2);
+        selectedIslandIndex = Mathf.Clamp(payload.selectedIslandIndex, 0, 2);
+        lastDockedIslandIndex = Mathf.Clamp(payload.lastDockedIslandIndex, 0, 2);
+        returningFromIsland = false;
+        boatHealth = Mathf.Clamp(payload.boatHealth, 1, maxBoatHealth);
+        coins = Mathf.Max(0, payload.coins);
+        planks = Mathf.Max(0, payload.planks);
+        potions = Mathf.Max(0, payload.potions);
+        hasMagicCompass = payload.hasMagicCompass;
+        hasGoldenCrown = payload.hasGoldenCrown;
+        totalQuestionsAnswered = Mathf.Max(0, payload.totalQuestionsAnswered);
+        totalQuestionsCorrect = Mathf.Max(0, payload.totalQuestionsCorrect);
+        currentStreak = Mathf.Max(0, payload.currentStreak);
+        bestStreak = Mathf.Max(0, payload.bestStreak);
+        playTimeSeconds = Mathf.Max(0f, payload.playTimeSeconds);
+
+        if (payload.oceanRoundsCompletedForIsland != null && payload.oceanRoundsCompletedForIsland.Length == 3)
+            oceanRoundsCompletedForIsland = payload.oceanRoundsCompletedForIsland;
+        if (payload.completedIslandSpecialChest != null && payload.completedIslandSpecialChest.Length == 3)
+            completedIslandSpecialChest = payload.completedIslandSpecialChest;
+        if (payload.hasIslandKey != null && payload.hasIslandKey.Length == 3)
+            hasIslandKey = payload.hasIslandKey;
+        if (payload.islandRewardsAssigned != null && payload.islandRewardsAssigned.Length == 3)
+            islandRewardsAssigned = payload.islandRewardsAssigned;
+        if (payload.completedNpcGuides != null && payload.completedNpcGuides.Length == 3)
+            completedNpcGuides = payload.completedNpcGuides;
+
+        openedChestIds = payload.openedChestIds != null ? payload.openedChestIds : new List<string>();
+        chestRewards = payload.chestRewards != null ? payload.chestRewards : new List<ChestRewardAssignment>();
+
+        NotifyStateChanged();
+        return true;
     }
 }

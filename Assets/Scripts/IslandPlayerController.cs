@@ -112,7 +112,7 @@ public class IslandPlayerController : MonoBehaviour
 
     public void RefreshInteractables()
     {
-        cachedInteractables = FindObjectsByType<IslandInteractable>(FindObjectsSortMode.None);
+        cachedInteractables = FindObjectsByType<IslandInteractable>();
     }
 
     public void SetControlsEnabled(bool enabled)
@@ -258,6 +258,10 @@ public class IslandPlayerController : MonoBehaviour
         {
             string hitName = hit.collider.gameObject.name;
             isWoodDock = hitName.IndexOf("Dock", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                         hitName.IndexOf("Pier", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                         hitName.IndexOf("Gangplank", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                         hitName.IndexOf("Deck", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                         hitName.IndexOf("Plank", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
                          hitName.IndexOf("Ramp", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
                          hitName.IndexOf("Bridge", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
                          hitName.IndexOf("Wood", System.StringComparison.OrdinalIgnoreCase) >= 0;

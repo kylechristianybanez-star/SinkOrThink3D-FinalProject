@@ -113,6 +113,8 @@ public class BoatSink : MonoBehaviour
         if (boatAnimator != null)
             boatAnimator.PlayDamageSplash();
 
+        ScreenFeedbackFX.EnsureInstance().TriggerDamageFeedback(amount >= 20 ? 0.22f : 0.14f);
+
         if (currentHealth <= 0)
         {
             currentHealth = 0;
@@ -137,6 +139,7 @@ public class BoatSink : MonoBehaviour
             UpdateHealthText();
             if (boatAnimator != null)
                 boatAnimator.PlayRepairEffect();
+            ScreenFeedbackFX.EnsureInstance().TriggerRepairFeedback();
         }
 
         return restored;
@@ -148,8 +151,12 @@ public class BoatSink : MonoBehaviour
         currentHealth = Mathf.Clamp(state.boatHealth, 0, maxHealth);
         UpdateHealthText();
 
-        if (playRepairFx && boatAnimator != null)
-            boatAnimator.PlayRepairEffect();
+        if (playRepairFx)
+        {
+            if (boatAnimator != null)
+                boatAnimator.PlayRepairEffect();
+            ScreenFeedbackFX.EnsureInstance().TriggerRepairFeedback();
+        }
     }
 
     private void UpdateHealthUIImmediate()

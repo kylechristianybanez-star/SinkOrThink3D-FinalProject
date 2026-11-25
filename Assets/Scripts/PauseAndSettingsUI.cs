@@ -19,11 +19,13 @@ public class PauseAndSettingsUI : MonoBehaviour
     private GameObject settingsPanelRoot;
 
     private Slider masterSlider;
+    private Slider musicSlider;
     private Slider ambientSlider;
     private Slider sfxSlider;
     private Slider sensitivitySlider;
 
     private TMP_Text masterValueText;
+    private TMP_Text musicValueText;
     private TMP_Text ambientValueText;
     private TMP_Text sfxValueText;
     private TMP_Text sensitivityValueText;
@@ -49,7 +51,7 @@ public class PauseAndSettingsUI : MonoBehaviour
         if (Instance != null)
             return Instance;
 
-        PauseAndSettingsUI existing = FindFirstObjectByType<PauseAndSettingsUI>();
+        PauseAndSettingsUI existing = FindAnyObjectByType<PauseAndSettingsUI>();
         if (existing != null)
         {
             Instance = existing;
@@ -92,8 +94,8 @@ public class PauseAndSettingsUI : MonoBehaviour
 
     private void RefreshSceneReferences()
     {
-        cachedOceanQuiz = FindFirstObjectByType<QuizManager>();
-        cachedChestQuiz = FindFirstObjectByType<ChestQuizManager>();
+        cachedOceanQuiz = FindAnyObjectByType<QuizManager>();
+        cachedChestQuiz = FindAnyObjectByType<ChestQuizManager>();
         sceneRefsCached = true;
     }
 
@@ -142,6 +144,9 @@ public class PauseAndSettingsUI : MonoBehaviour
         if (VictoryScreenUI.Instance != null && VictoryScreenUI.Instance.IsShowing)
             return true;
 
+        if (GameOverUI.Instance != null && GameOverUI.Instance.IsShowing)
+            return true;
+
         if (InventoryHotbarUI.Instance != null && InventoryHotbarUI.Instance.IsInventoryOpen)
             return true;
 
@@ -149,6 +154,9 @@ public class PauseAndSettingsUI : MonoBehaviour
             RefreshSceneReferences();
 
         if (cachedChestQuiz != null && cachedChestQuiz.IsQuizOpen)
+            return true;
+
+        if (IslandGuideNPC.AnyDialogueOpen)
             return true;
 
         if (cachedOceanQuiz != null && cachedOceanQuiz.IsGameFinished)
@@ -258,7 +266,7 @@ public class PauseAndSettingsUI : MonoBehaviour
     private void OnResetDefaultsClicked()
     {
         GameAudioManager.EnsureInstance().PlayClick();
-        GameAudioManager.EnsureInstance().ApplyVolumes(0.85f, 0.35f, 0.65f, true);
+        GameAudioManager.EnsureInstance().ApplyVolumes(0.85f, 0.42f, 0.35f, 0.65f, true);
         PlayerPrefs.SetFloat(MouseSensitivityKey, 2.0f);
         PlayerPrefs.Save();
         ApplySavedSensitivityToScene();
@@ -271,16 +279,17 @@ public class PauseAndSettingsUI : MonoBehaviour
             return;
 
         float m = masterSlider != null ? masterSlider.value : 0.85f;
+        float mu = musicSlider != null ? musicSlider.value : 0.42f;
         float a = ambientSlider != null ? ambientSlider.value : 0.35f;
         float s = sfxSlider != null ? sfxSlider.value : 0.65f;
         float sens = sensitivitySlider != null ? sensitivitySlider.value : 2.0f;
 
-        GameAudioManager.EnsureInstance().ApplyVolumes(m, a, s, true);
+        GameAudioManager.EnsureInstance().ApplyVolumes(m, mu, a, s, true);
         PlayerPrefs.SetFloat(MouseSensitivityKey, sens);
         PlayerPrefs.Save();
 
         ApplySavedSensitivityToScene();
-        UpdateSliderValueLabels(m, a, s, sens);
+        UpdateSliderValueLabels(m, mu, a, s, sens);
     }
 
     private void RefreshSlidersFromSaved()
@@ -289,22 +298,25 @@ public class PauseAndSettingsUI : MonoBehaviour
 
         GameAudioManager audioMgr = GameAudioManager.EnsureInstance();
         float m = audioMgr.MasterVolume;
+        float mu = audioMgr.MusicVolume;
         float a = audioMgr.AmbientVolume;
         float s = audioMgr.SfxVolume;
         float sens = GetSavedMouseSensitivity();
 
         if (masterSlider != null) masterSlider.value = m;
+        if (musicSlider != null) musicSlider.value = mu;
         if (ambientSlider != null) ambientSlider.value = a;
         if (sfxSlider != null) sfxSlider.value = s;
         if (sensitivitySlider != null) sensitivitySlider.value = sens;
 
-        UpdateSliderValueLabels(m, a, s, sens);
+        UpdateSliderValueLabels(m, mu, a, s, sens);
         suppressSliderEvents = false;
     }
 
-    private void UpdateSliderValueLabels(float m, float a, float s, float sens)
+    private void UpdateSliderValueLabels(float m, float mu, float a, float s, float sens)
     {
         if (masterValueText != null) masterValueText.text = Mathf.RoundToInt(m * 100f) + "%";
+        if (musicValueText != null) musicValueText.text = Mathf.RoundToInt(mu * 100f) + "%";
         if (ambientValueText != null) ambientValueText.text = Mathf.RoundToInt(a * 100f) + "%";
         if (sfxValueText != null) sfxValueText.text = Mathf.RoundToInt(s * 100f) + "%";
         if (sensitivityValueText != null) sensitivityValueText.text = sens.ToString("0.0");
@@ -314,34 +326,34 @@ public class PauseAndSettingsUI : MonoBehaviour
     {
         float sens = GetSavedMouseSensitivity();
 
-        FirstPersonMouseLook boatLook = FindFirstObjectByType<FirstPersonMouseLook>();
+        FirstPersonMouseLook boatLook = FindAnyObjectByType<FirstPersonMouseLook>();
         if (boatLook != null)
             boatLook.mouseSensitivity = sens;
 
-        IslandPlayerController islandPlayer = FindFirstObjectByType<IslandPlayerController>();
+        IslandPlayerController islandPlayer = FindAnyObjectByType<IslandPlayerController>();
         if (islandPlayer != null)
             islandPlayer.mouseSensitivity = sens;
     }
 
     private void SetSceneControlsEnabled(bool enabled)
     {
-        IslandPlayerController islandPlayer = FindFirstObjectByType<IslandPlayerController>();
+        IslandPlayerController islandPlayer = FindAnyObjectByType<IslandPlayerController>();
         if (islandPlayer != null)
         {
-            ChestQuizManager chestQuiz = FindFirstObjectByType<ChestQuizManager>();
+            ChestQuizManager chestQuiz = FindAnyObjectByType<ChestQuizManager>();
             bool keepLockedForQuiz = chestQuiz != null && chestQuiz.IsQuizOpen;
             if (!enabled || !keepLockedForQuiz)
                 islandPlayer.SetControlsEnabled(enabled);
         }
 
-        BoatMovement boatMove = FindFirstObjectByType<BoatMovement>();
-        QuizManager oceanQuiz = FindFirstObjectByType<QuizManager>();
+        BoatMovement boatMove = FindAnyObjectByType<BoatMovement>();
+        QuizManager oceanQuiz = FindAnyObjectByType<QuizManager>();
         bool oceanQuizOpen = oceanQuiz != null && oceanQuiz.IsQuizActive;
 
         if (boatMove != null)
             boatMove.canMove = enabled && !oceanQuizOpen;
 
-        FirstPersonMouseLook mouseLook = FindFirstObjectByType<FirstPersonMouseLook>();
+        FirstPersonMouseLook mouseLook = FindAnyObjectByType<FirstPersonMouseLook>();
         if (mouseLook != null)
             mouseLook.enabled = enabled && !oceanQuizOpen;
     }
@@ -385,19 +397,20 @@ public class PauseAndSettingsUI : MonoBehaviour
 
     private void BuildSettingsPanel(Transform parent)
     {
-        settingsPanelRoot = CreateWoodenCard(parent, "SettingsCard", new Vector2(680f, 520f), out GameObject paper);
+        settingsPanelRoot = CreateWoodenCard(parent, "SettingsCard", new Vector2(680f, 580f), out GameObject paper);
 
-        TMP_Text title = CreateText(paper.transform, "Title", new Vector2(0f, 198f), new Vector2(580f, 48f), 32f, FontStyles.Bold, new Color(0.24f, 0.14f, 0.05f, 1f));
+        TMP_Text title = CreateText(paper.transform, "Title", new Vector2(0f, 228f), new Vector2(580f, 48f), 32f, FontStyles.Bold, new Color(0.24f, 0.14f, 0.05f, 1f));
         title.text = "SETTINGS";
         title.raycastTarget = false;
 
-        masterSlider = CreateSliderRow(paper.transform, "Master Volume", 118f, 0f, 1f, out masterValueText);
-        ambientSlider = CreateSliderRow(paper.transform, "Ambience Volume", 50f, 0f, 1f, out ambientValueText);
-        sfxSlider = CreateSliderRow(paper.transform, "SFX Volume", -18f, 0f, 1f, out sfxValueText);
-        sensitivitySlider = CreateSliderRow(paper.transform, "Mouse Sensitivity", -86f, 0.5f, 5.0f, out sensitivityValueText);
+        masterSlider = CreateSliderRow(paper.transform, "Master Volume", 148f, 0f, 1f, out masterValueText);
+        musicSlider = CreateSliderRow(paper.transform, "Music Volume", 84f, 0f, 1f, out musicValueText);
+        ambientSlider = CreateSliderRow(paper.transform, "Ambience Volume", 20f, 0f, 1f, out ambientValueText);
+        sfxSlider = CreateSliderRow(paper.transform, "SFX Volume", -44f, 0f, 1f, out sfxValueText);
+        sensitivitySlider = CreateSliderRow(paper.transform, "Mouse Sensitivity", -108f, 0.5f, 5.0f, out sensitivityValueText);
 
-        CreateButton(paper.transform, "ResetBtn", new Vector2(-135f, -182f), new Vector2(220f, 50f), new Color(0.52f, 0.38f, 0.2f, 1f), "Reset Defaults", OnResetDefaultsClicked);
-        CreateButton(paper.transform, "BackBtn", new Vector2(135f, -182f), new Vector2(220f, 50f), new Color(0.2f, 0.56f, 0.28f, 1f), "Back", BackFromSettings);
+        CreateButton(paper.transform, "ResetBtn", new Vector2(-135f, -206f), new Vector2(220f, 50f), new Color(0.52f, 0.38f, 0.2f, 1f), "Reset Defaults", OnResetDefaultsClicked);
+        CreateButton(paper.transform, "BackBtn", new Vector2(135f, -206f), new Vector2(220f, 50f), new Color(0.2f, 0.56f, 0.28f, 1f), "Back", BackFromSettings);
 
         RefreshSlidersFromSaved();
     }

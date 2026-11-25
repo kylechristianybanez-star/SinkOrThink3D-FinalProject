@@ -43,6 +43,8 @@ public class IslandSceneController : MonoBehaviour
 
         InventoryHotbarUI.EnsureInstance();
         MagicCompassUI compass = MagicCompassUI.EnsureInstance();
+        ScreenFeedbackFX.EnsureInstance();
+        IslandMinimapUI minimap = IslandMinimapUI.EnsureInScene();
         GameAudioManager audioMgr = GameAudioManager.EnsureInstance();
         PauseAndSettingsUI.EnsureInstance();
         audioMgr.SetIslandAmbience(islandIndex);
@@ -50,9 +52,10 @@ public class IslandSceneController : MonoBehaviour
         chestQuiz.RefreshForIsland(islandIndex);
 
         CleanupDuplicateSceneSystems();
+        SpawnLandmarkBeacons();
 
         if (player == null)
-            player = FindFirstObjectByType<IslandPlayerController>();
+            player = FindAnyObjectByType<IslandPlayerController>();
 
         if (player != null)
         {
@@ -62,6 +65,7 @@ public class IslandSceneController : MonoBehaviour
         }
 
         compass.RefreshTargetsNow();
+        minimap.RefreshSceneMarkers();
 
         if (islandStatusText != null)
             islandStatusText.raycastTarget = false;
@@ -113,7 +117,7 @@ public class IslandSceneController : MonoBehaviour
 
     private void CleanupDuplicateSceneSystems()
     {
-        AudioListener[] listeners = FindObjectsByType<AudioListener>(FindObjectsSortMode.None);
+        AudioListener[] listeners = FindObjectsByType<AudioListener>();
         bool keptFirstListener = false;
         for (int i = 0; i < listeners.Length; i++)
         {
@@ -125,8 +129,66 @@ public class IslandSceneController : MonoBehaviour
             listeners[i].enabled = false;
         }
 
-        EventSystem[] eventSystems = FindObjectsByType<EventSystem>(FindObjectsSortMode.None);
+        EventSystem[] eventSystems = FindObjectsByType<EventSystem>();
         for (int i = 1; i < eventSystems.Length; i++)
             Destroy(eventSystems[i].gameObject);
+    }
+
+    private void SpawnLandmarkBeacons()
+    {
+        IslandBoatReturn boatRet = FindAnyObjectByType<IslandBoatReturn>();
+        if (boatRet != null)
+        {
+            CreateBeam("DockReturnBeacon", boatRet.transform.position + Vector3.up * 16f, new Color(0.22f, 0.88f, 0.88f, 0.24f), 0.7f, false, "");
+        }
+
+        TreasureChest[] chests = FindObjectsByType<TreasureChest>();
+        for (int i = 0; i < chests.Length; i++)
+        {
+            TreasureChest tc = chests[i];
+            if (tc != null && tc.gameObject.activeInHierarchy && tc.isSpecialChest)
+            {
+                CreateBeam("SpecialChestBeacon", tc.transform.position + Vector3.up * 18f, new Color(1f, 0.86f, 0.22f, 0.34f), 0.85f, true, tc.chestId);
+                break;
+            }
+        }
+    }
+
+    private void CreateBeam(string name, Vector3 pos, Color col, float radius, bool requireKey, string chestId)
+    {
+        GameObject beam = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        beam.name = name;
+        beam.transform.position = pos;
+        beam.transform.localScale = new Vector3(radius, 18f, radius);
+
+        Collider c = beam.GetComponent<Collider>();
+        if (c != null)
+            Destroy(c);
+
+        Renderer mr = beam.GetComponent<Renderer>();
+        if (mr != null)
+        {
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            Shader s = Shader.Find("Universal Render Pipeline/Unlit");
+            if (s == null) s = Shader.Find("Standard");
+            if (s != null)
+            {
+                Material mat = new Material(s);
+                mat.SetFloat("_Surface", 1f);
+                mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                mat.SetInt("_ZWrite", 0);
+                mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                mat.renderQueue = 3000;
+                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", col);
+                if (mat.HasProperty("_Color")) mat.SetColor("_Color", col);
+                mr.sharedMaterial = mat;
+            }
+        }
+
+        LandmarkBeacon lb = beam.AddComponent<LandmarkBeacon>();
+        lb.requireIslandKey = requireKey;
+        lb.islandIndex = islandIndex;
+        lb.linkedChestId = chestId;
     }
 }

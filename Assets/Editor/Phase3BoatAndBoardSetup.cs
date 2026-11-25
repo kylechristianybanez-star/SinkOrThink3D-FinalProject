@@ -52,7 +52,7 @@ public static class Phase3BoatAndBoardSetup
         Material splashParticleMat = GetOrCreateParticleMaterial("BoatSplashParticle.mat", new Color(0.86f, 0.96f, 1f, 0.7f));
         Material sparkleParticleMat = GetOrCreateParticleMaterial("BoatSparkleParticle.mat", new Color(1f, 0.86f, 0.32f, 0.9f));
 
-        QuizManager quizManager = Object.FindFirstObjectByType<QuizManager>();
+        QuizManager quizManager = Object.FindAnyObjectByType<QuizManager>();
         GameObject quizBoard = quizManager != null && quizManager.quizBoard != null
             ? quizManager.quizBoard
             : FindSceneObjectByName(activeScene, "QuizBoard3D");
@@ -335,6 +335,7 @@ public static class Phase3BoatAndBoardSetup
         if (ps == null)
             ps = go.AddComponent<ParticleSystem>();
 
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         ParticleSystem.MainModule main = ps.main;
         main.playOnAwake = false;
         main.loop = true;
@@ -383,6 +384,7 @@ public static class Phase3BoatAndBoardSetup
         if (ps == null)
             ps = go.AddComponent<ParticleSystem>();
 
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         ParticleSystem.MainModule main = ps.main;
         main.playOnAwake = false;
         main.loop = false;

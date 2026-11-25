@@ -31,7 +31,7 @@ public class MagicCompassUI : MonoBehaviour
         if (Instance != null)
             return Instance;
 
-        MagicCompassUI existing = FindFirstObjectByType<MagicCompassUI>();
+        MagicCompassUI existing = FindAnyObjectByType<MagicCompassUI>();
         if (existing != null)
         {
             Instance = existing;
@@ -125,9 +125,9 @@ public class MagicCompassUI : MonoBehaviour
 
     private void RefreshSceneTargets()
     {
-        cachedPlayer = FindFirstObjectByType<IslandPlayerController>();
-        cachedChests = FindObjectsByType<TreasureChest>(FindObjectsSortMode.None);
-        cachedBoatReturn = FindFirstObjectByType<IslandBoatReturn>();
+        cachedPlayer = FindAnyObjectByType<IslandPlayerController>();
+        cachedChests = FindObjectsByType<TreasureChest>();
+        cachedBoatReturn = FindAnyObjectByType<IslandBoatReturn>();
     }
 
     private void RefreshVisibility()

@@ -72,6 +72,9 @@ public class QuizManager : MonoBehaviour
     private AnswerButton3D hoveredButton;
     private Coroutine nextQuestionCoroutine;
     private readonly List<RaycastResult> uiRaycastResults = new List<RaycastResult>();
+    private QuizQuestion currentActiveQuestion;
+    private bool hintUsedThisQuestion = false;
+    private readonly bool[] eliminatedChoices = new bool[4];
 
     public bool IsQuizActive => canAnswer || (quizBoard != null && quizBoard.activeInHierarchy);
     public bool IsGameFinished => gameFinished;
@@ -83,6 +86,9 @@ public class QuizManager : MonoBehaviour
         MagicCompassUI.EnsureInstance();
         GameAudioManager.EnsureInstance();
         PauseAndSettingsUI.EnsureInstance();
+        ScreenFeedbackFX.EnsureInstance();
+        OceanGameplaySpawner.EnsureInScene();
+        OceanWeatherController.EnsureInScene();
         currentIslandIndex = Mathf.Clamp(state.currentIslandIndex, 0, 2);
 
         if (firstPersonMouseLook != null)
@@ -164,6 +170,9 @@ public class QuizManager : MonoBehaviour
         if (!canAnswer)
             return;
 
+        if (Input.GetKeyDown(KeyCode.H))
+            TryUseOceanHint();
+
         HandleBoardPointerInput();
 
         timeRemaining -= Time.deltaTime;
@@ -223,7 +232,7 @@ public class QuizManager : MonoBehaviour
         for (int i = 0; i < hits.Length; i++)
         {
             AnswerButton3D button = hits[i].collider.GetComponentInParent<AnswerButton3D>();
-            if (button != null && hits[i].distance < closestDistance)
+            if (button != null && !eliminatedChoices[button.answerNumber] && hits[i].distance < closestDistance)
             {
                 closestDistance = hits[i].distance;
                 closestButton = button;
@@ -348,12 +357,15 @@ public class QuizManager : MonoBehaviour
     {
         if (oceanTravelTimerText != null)
         {
-            string voyageLabel = GameStateManager.EnsureInstance().GetVoyageLabel(currentIslandIndex);
+            GameStateManager state = GameStateManager.EnsureInstance();
+            string voyageLabel = state.GetVoyageLabel(currentIslandIndex);
             string dockHint = CanDockNow() ? "  |  Dock Ready (Press F near dock)" : "";
+            string boostHint = (boatMovement != null && boatMovement.IsSpeedBoostActive) ? "  |  Wind Boost!" : "";
+            string streakHint = state.currentStreak >= 2 ? "  |  Streak: " + state.currentStreak : "";
             oceanTravelTimerText.text =
                 voyageLabel + "  |  Round " + roundNumber +
                 " - Travel: " +
-                Mathf.CeilToInt(timeRemaining) + "s" + dockHint;
+                Mathf.CeilToInt(timeRemaining) + "s" + dockHint + boostHint + streakHint;
         }
     }
 
@@ -361,6 +373,10 @@ public class QuizManager : MonoBehaviour
     {
         if (activeQuestionPool == null || activeQuestionPool.Length == 0)
             return;
+
+        hintUsedThisQuestion = false;
+        for (int i = 0; i < 4; i++)
+            eliminatedChoices[i] = false;
 
         if (firstPersonMouseLook != null)
         {
@@ -396,6 +412,7 @@ public class QuizManager : MonoBehaviour
         questionPosition++;
 
         QuizQuestion q = activeQuestionPool[activeQuestionIndex];
+        currentActiveQuestion = q;
 
         for (int i = 0; i < 4; i++)
             choiceShuffle[i] = i;
@@ -435,18 +452,69 @@ public class QuizManager : MonoBehaviour
         UpdateTimerDisplay();
     }
 
+    private void TryUseOceanHint()
+    {
+        if (!canAnswer || hintUsedThisQuestion)
+            return;
+
+        GameStateManager state = GameStateManager.EnsureInstance();
+        if (!state.TrySpendHintCoins(out string msg))
+        {
+            ScreenFader.EnsureInstance().ShowArrivalBanner(msg, 2.2f);
+            return;
+        }
+
+        hintUsedThisQuestion = true;
+        List<int> wrongIndices = new List<int>();
+        for (int i = 0; i < 4; i++)
+        {
+            if (i != displayedCorrectAnswer)
+                wrongIndices.Add(i);
+        }
+
+        for (int removeCount = 0; removeCount < 2 && wrongIndices.Count > 0; removeCount++)
+        {
+            int pick = Random.Range(0, wrongIndices.Count);
+            int targetIdx = wrongIndices[pick];
+            wrongIndices.RemoveAt(pick);
+            eliminatedChoices[targetIdx] = true;
+            SetButtonColor(targetIdx, new Color(0.28f, 0.28f, 0.30f, 1f));
+            TMP_Text txt = GetAnswerText(targetIdx);
+            if (txt != null)
+                txt.text = "---";
+        }
+
+        if (hoveredButton != null && eliminatedChoices[hoveredButton.answerNumber])
+            ClearHover();
+
+        GameAudioManager.EnsureInstance().PlayHintChime();
+        ScreenFader.EnsureInstance().ShowArrivalBanner("50/50 Hint Used! 2 wrong answers removed.", 2.2f);
+        UpdateTimerDisplay();
+    }
+
+    private TMP_Text GetAnswerText(int index)
+    {
+        if (index == 0) return answerTextA;
+        if (index == 1) return answerTextB;
+        if (index == 2) return answerTextC;
+        if (index == 3) return answerTextD;
+        return null;
+    }
+
     void UpdateTimerDisplay()
     {
         int questionNum = questionsInRound + 1;
         int seconds = Mathf.CeilToInt(timeRemaining);
+        GameStateManager state = GameStateManager.EnsureInstance();
+        string hintTag = (!hintUsedThisQuestion && canAnswer) ? "  |  [H] 50/50 Hint (10c)" : "";
 
         if (questionCounterText != null)
-            questionCounterText.text = "Question " + questionNum + "/" + questionsPerRound;
+            questionCounterText.text = "Question " + questionNum + "/" + questionsPerRound + hintTag;
 
         if (timerText != null)
         {
             if (questionCounterText == null)
-                timerText.text = "Question " + questionNum + "/" + questionsPerRound + "  |  Time: " + seconds + "s";
+                timerText.text = "Q" + questionNum + "/" + questionsPerRound + "  |  Time: " + seconds + "s" + hintTag;
             else
                 timerText.text = "Question Time: " + seconds + "s";
 
@@ -471,6 +539,8 @@ public class QuizManager : MonoBehaviour
         canAnswer = false;
         ClearHover();
 
+        GameStateManager.EnsureInstance().RecordQuizResult(false);
+
         if (timerText != null)
         {
             timerText.text = "Question Time: 0s";
@@ -494,14 +564,22 @@ public class QuizManager : MonoBehaviour
         }
 
         if (questionText != null)
-            questionText.text = "Time's Up! Boat damaged!";
+        {
+            string fact = (currentActiveQuestion != null && !string.IsNullOrEmpty(currentActiveQuestion.explanation))
+                ? "\n" + currentActiveQuestion.explanation
+                : "";
+            questionText.text = "Time's Up! Boat damaged!" + fact;
+        }
 
-        ScheduleNextQuestion(2f);
+        ScheduleNextQuestion(2.6f);
     }
 
     public void CheckAnswer(int answer)
     {
         if (!canAnswer || gameFinished || pausedForDocking)
+            return;
+
+        if (answer < 0 || answer >= 4 || eliminatedChoices[answer])
             return;
 
         if (boatSink != null && boatSink.currentHealth <= 0)
@@ -517,17 +595,35 @@ public class QuizManager : MonoBehaviour
         if (timerText != null)
             timerText.transform.localScale = originalTimerScale;
 
+        GameStateManager state = GameStateManager.EnsureInstance();
+        string fact = (currentActiveQuestion != null && !string.IsNullOrEmpty(currentActiveQuestion.explanation))
+            ? "\n" + currentActiveQuestion.explanation
+            : "";
+
         if (answer == displayedCorrectAnswer)
         {
+            int streak = state.RecordQuizResult(true);
             SetButtonColor(answer, correctColor);
             if (quizBoardAnimator != null)
                 quizBoardAnimator.PlayCorrectFeedback();
             GameAudioManager.EnsureInstance().PlayCorrect();
+
+            if (streak >= 3 && streak % 3 == 0)
+            {
+                state.coins += 5;
+                state.NotifyStateChanged();
+                if (boatMovement != null)
+                    boatMovement.ApplySpeedBoost(1.38f, 7f);
+                GameAudioManager.EnsureInstance().PlaySpeedBoost();
+                ScreenFader.EnsureInstance().ShowArrivalBanner("Wind in Your Sails! " + streak + "-Streak: +5 Coins & Speed Boost!", 2.8f);
+            }
+
             if (questionText != null)
-                questionText.text = "Correct! The boat is safe!";
+                questionText.text = "Correct! Boat safe!" + fact;
         }
         else
         {
+            state.RecordQuizResult(false);
             SetButtonColor(answer, wrongColor);
             SetButtonColor(displayedCorrectAnswer, correctColor);
             if (quizBoardAnimator != null)
@@ -545,10 +641,10 @@ public class QuizManager : MonoBehaviour
             }
 
             if (questionText != null)
-                questionText.text = "Wrong answer! Boat damaged!";
+                questionText.text = "Wrong answer! Boat damaged!" + fact;
         }
 
-        ScheduleNextQuestion(2f);
+        ScheduleNextQuestion(string.IsNullOrEmpty(fact) ? 2.0f : 2.6f);
     }
 
     private void ScheduleNextQuestion(float delaySeconds)
@@ -590,6 +686,7 @@ public class QuizManager : MonoBehaviour
         questionsInRound = 0;
 
         GameStateManager.EnsureInstance().MarkOceanRoundCompleted(currentIslandIndex);
+        GameStateManager.EnsureInstance().SaveProgress();
 
         if (celebrationEffect != null)
             celebrationEffect.Play();
@@ -640,7 +737,20 @@ public class QuizManager : MonoBehaviour
         StartTravel();
     }
 
+    public void TriggerGameOverExternal(string reason)
+    {
+        if (gameFinished)
+            return;
+
+        GameOver(reason);
+    }
+
     void GameOver()
+    {
+        GameOver("Your boat sank beneath the ocean waves!");
+    }
+
+    void GameOver(string customReason)
     {
         if (firstPersonMouseLook != null)
             firstPersonMouseLook.enabled = false;
@@ -679,14 +789,19 @@ public class QuizManager : MonoBehaviour
         GameAudioManager.EnsureInstance().PlayGameOver();
 
         if (gameOverPanel != null)
-            gameOverPanel.SetActive(true);
+            gameOverPanel.SetActive(false);
+
+        GameOverUI.EnsureInstance().ShowGameOver(customReason);
     }
 
     public void PlayAgain()
     {
         Time.timeScale = 1f;
+        if (GameOverUI.Instance != null)
+            GameOverUI.Instance.HideOverlay();
         GameStateManager.EnsureInstance().StartNewGame();
-        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        GameAudioManager.EnsureInstance().SetAdventureMusic();
+        ScreenFader.EnsureInstance().FadeAndLoadScene(SceneManager.GetActiveScene().name, 0.65f);
     }
 
     private Renderer GetButtonRenderer(int index)

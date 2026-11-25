@@ -20,7 +20,7 @@ public static class Phase7ChestQuizSetup
 
         Scene islandScene = EditorSceneManager.OpenScene(IslandScenePath, OpenSceneMode.Single);
 
-        ChestQuizManager quizMgr = Object.FindFirstObjectByType<ChestQuizManager>();
+        ChestQuizManager quizMgr = Object.FindAnyObjectByType<ChestQuizManager>();
         if (quizMgr == null)
         {
             GameObject go = new GameObject("ChestQuizManager");
@@ -30,7 +30,7 @@ public static class Phase7ChestQuizSetup
         quizMgr.islandIndex = 0;
         EditorUtility.SetDirty(quizMgr);
 
-        TreasureChest[] chests = Object.FindObjectsByType<TreasureChest>(FindObjectsSortMode.None);
+        TreasureChest[] chests = Object.FindObjectsByType<TreasureChest>();
         HashSet<string> ids = new HashSet<string>();
         int regularCount = 0;
         int specialCount = 0;

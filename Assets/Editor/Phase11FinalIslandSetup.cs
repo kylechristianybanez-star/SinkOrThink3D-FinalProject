@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -17,26 +18,30 @@ public static class Phase11FinalIslandSetup
 {
     private const string GameScenePath = "Assets/Scenes/GameScene.unity";
     private const string IslandScenePath = "Assets/Scenes/IslandScene.unity";
-    private const string FinalTerrainPath = "Assets/Free Island Collection/Environment/Terrain/Terrains/Terrain 3.asset";
+    private const string SourceFinalTerrainPath = "Assets/Free Island Collection/Environment/Terrain/Terrains/Terrain 3.asset";
+    private const string FinalTerrainPath = "Assets/Terrain/FinalTreasureTerrain.asset";
 
     private const string Cliff2TexPath = "Assets/Free Island Collection/Environment/Terrain/Textures/Cliff_2/Cliff_2_Diffuse.tif";
     private const string MossRockTexPath = "Assets/Free Island Collection/Environment/Terrain/Textures/Mossy_Rock/Mossy_Rock_Diffuse.tif";
     private const string PlankTexPath = "Assets/Textures/Planks023A_1K-JPG_Color.jpg";
     private const string WaterfallTexPath = "Assets/Textures/WaterfallFoamPattern.png";
 
-    private const string DockPrefabPath = "Assets/Island/Prefabs/Dock.prefab";
     private const string BoatPrefabPath = "Assets/Boats/Prefabs/OldWoodenRowboat_Complete.prefab";
     private const string OldTextPrefabPath = "Assets/POLYART_Ancient Village/Prefabs/PA_Oldtext.prefab";
     private const string PortalSpherePrefabPath = "Assets/POLYART_Ancient Village/Prefabs/PA_PortalSphere.prefab";
-    private const string BridgePrefabPath = "Assets/POLYART_Ancient Village/Prefabs/PA_Bridge.prefab";
-    private const string FireFxPath = "Assets/POLYART_Ancient Village/Prefabs/PA_FireFX_1.prefab";
+    private const string BridgePrefabPath = "Assets/Prefabs/AncientStoneBridge.prefab";
+    private const string CampfirePath = "Assets/ToonTropical/Prefabs/SM_Island_Campfire.prefab";
+    private const string EmbersPath = "Assets/ToonTropical/Prefabs/FX/FX_Embers.prefab";
     private const string BushPath = "Assets/ToonTropical/Prefabs/SM_Island_Bush_A.prefab";
     private const string GrassPath = "Assets/ToonTropical/Prefabs/SM_Island_GrassTuft_A.prefab";
+    private const string BarrelPath = "Assets/ToonTropical/Prefabs/SM_Island_Barrel.prefab";
+    private const string CratePath = "Assets/ToonTropical/Prefabs/SM_Island_Crate.prefab";
 
     private const string ArchPrefabPath = "Assets/Prefabs/AncientTempleArch.prefab";
     private const string PillarPrefabPath = "Assets/Prefabs/AncientStonePillar.prefab";
     private const string ChamberPrefabPath = "Assets/Prefabs/AncientTreasureChamber.prefab";
     private const string WaterfallPrefabPath = "Assets/Prefabs/AncientWaterfall.prefab";
+    private const string RuinHousePrefabPath = "Assets/Prefabs/AncientRuinHouse.prefab";
 
     private static readonly string[] TreePaths = new string[]
     {
@@ -53,7 +58,11 @@ public static class Phase11FinalIslandSetup
         "Assets/POLYART_Ancient Village/Prefabs/PA_RockSet1_Pile2.prefab",
         "Assets/POLYART_Ancient Village/Prefabs/PA_RockSet1_Pile4.prefab",
         "Assets/POLYART_Ancient Village/Prefabs/PA_RockSet2_Pile3.prefab",
-        "Assets/POLYART_Ancient Village/Prefabs/PA_RockSet3_Pile1.prefab",
+        "Assets/POLYART_Ancient Village/Prefabs/PA_RockSet3_Pile1.prefab"
+    };
+
+    private static readonly string[] MountainPaths = new string[]
+    {
         "Assets/POLYART_Ancient Village/Prefabs/PA_Mountainset1_hill2.prefab",
         "Assets/POLYART_Ancient Village/Prefabs/PA_mountainset2_hill1.prefab",
         "Assets/POLYART_Ancient Village/Prefabs/PA_mountainset2_hill3.prefab"
@@ -73,6 +82,10 @@ public static class Phase11FinalIslandSetup
         EnsureFolder("Assets/Prefabs");
         EnsureFolder("Assets/Materials");
         EnsureFolder("Assets/Textures");
+        EnsureFolder("Assets/Terrain");
+
+        // Reset FinalTreasureTerrain from clean source once before flattening temple pads
+        IslandPlacementUtility.ResetTerrainFromSource(SourceFinalTerrainPath, FinalTerrainPath, new Vector3(480f, 76f, 480f));
 
         // Build/refresh reusable chest & ancient ruin prefabs
         Phase6DiscoveryIslandSetup.BuildOrLoadChestPrefabs(out GameObject regularChestPrefab, out GameObject specialChestPrefab);
@@ -80,16 +93,12 @@ public static class Phase11FinalIslandSetup
             out GameObject archPrefab,
             out GameObject pillarPrefab,
             out GameObject chamberPrefab,
-            out GameObject waterfallPrefab
+            out GameObject waterfallPrefab,
+            out GameObject ruinHousePrefab,
+            out GameObject stoneBridgePrefab
         );
 
-        // Part A: Build physical Final Island Overview + Dock in GameScene.unity
-        Scene gameScene = EditorSceneManager.OpenScene(GameScenePath, OpenSceneMode.Single);
-        BuildFinalOverviewInGameScene(gameScene, archPrefab, pillarPrefab, chamberPrefab, waterfallPrefab);
-        EditorSceneManager.MarkSceneDirty(gameScene);
-        EditorSceneManager.SaveScene(gameScene);
-
-        // Part B: Build Detailed FinalTreasureIsland inside reusable IslandScene.unity
+        // Part A: Build Detailed FinalTreasureIsland FIRST in IslandScene.unity (flattens pads into shared terrain)
         Scene islandScene = EditorSceneManager.OpenScene(IslandScenePath, OpenSceneMode.Single);
         BuildDetailedFinalInIslandScene(
             islandScene,
@@ -97,11 +106,22 @@ public static class Phase11FinalIslandSetup
             pillarPrefab,
             chamberPrefab,
             waterfallPrefab,
+            ruinHousePrefab,
+            stoneBridgePrefab,
             regularChestPrefab,
             specialChestPrefab
         );
+        IslandPlacementUtility.SanitizeGlobalLightingAndMaterials(islandScene);
         EditorSceneManager.MarkSceneDirty(islandScene);
         EditorSceneManager.SaveScene(islandScene);
+        AssetDatabase.SaveAssets();
+
+        // Part B: Build physical Final Island Overview + Dock in GameScene.unity using leveled terrain
+        Scene gameScene = EditorSceneManager.OpenScene(GameScenePath, OpenSceneMode.Single);
+        BuildFinalOverviewInGameScene(gameScene, archPrefab, pillarPrefab, chamberPrefab, waterfallPrefab, ruinHousePrefab, stoneBridgePrefab);
+        IslandPlacementUtility.SanitizeGlobalLightingAndMaterials(gameScene);
+        EditorSceneManager.MarkSceneDirty(gameScene);
+        EditorSceneManager.SaveScene(gameScene);
 
         AssetDatabase.SaveAssets();
 
@@ -122,24 +142,28 @@ public static class Phase11FinalIslandSetup
         out GameObject archPrefab,
         out GameObject pillarPrefab,
         out GameObject chamberPrefab,
-        out GameObject waterfallPrefab)
+        out GameObject waterfallPrefab,
+        out GameObject ruinHousePrefab,
+        out GameObject stoneBridgePrefab)
     {
         Texture2D cliffTex = AssetDatabase.LoadAssetAtPath<Texture2D>(Cliff2TexPath);
         Texture2D mossTex = AssetDatabase.LoadAssetAtPath<Texture2D>(MossRockTexPath);
         Texture2D plankTex = AssetDatabase.LoadAssetAtPath<Texture2D>(PlankTexPath);
         Texture2D waterfallTex = EnsureWaterfallFoamTexture();
 
-        Material mossyStoneMat = GetOrCreateLitMaterial("FinalMossyStone.mat", mossTex != null ? mossTex : cliffTex, new Color(0.58f, 0.64f, 0.56f, 1f), 0f, 0.14f);
-        Material darkCliffMat = GetOrCreateLitMaterial("FinalDarkCliff.mat", cliffTex, new Color(0.45f, 0.44f, 0.48f, 1f), 0f, 0.1f);
+        Material mossyStoneMat = GetOrCreateLitMaterial("FinalMossyStone.mat", mossTex != null ? mossTex : cliffTex, new Color(0.88f, 0.94f, 0.86f, 1f), 0f, 0.14f);
+        Material darkCliffMat = GetOrCreateLitMaterial("FinalDarkCliff.mat", cliffTex, new Color(0.78f, 0.78f, 0.82f, 1f), 0f, 0.1f);
         Material ancientGoldMat = GetOrCreateLitMaterial("FinalAncientGold.mat", null, new Color(0.86f, 0.68f, 0.24f, 1f), 0.88f, 0.62f);
-        Material dockTimberMat = GetOrCreateLitMaterial("FinalAncientTimber.mat", plankTex, new Color(0.42f, 0.3f, 0.2f, 1f), 0f, 0.16f);
+        Material dockTimberMat = GetOrCreateLitMaterial("FinalAncientTimber.mat", plankTex, new Color(0.82f, 0.68f, 0.52f, 1f), 0f, 0.16f);
         Material arcaneGlowMat = GetOrCreateEmissiveMaterial("FinalArcaneGlow.mat", new Color(0.32f, 0.92f, 0.86f, 1f), new Color(0.24f, 0.88f, 0.82f, 1f) * 1.85f);
         Material torchGlowMat = GetOrCreateEmissiveMaterial("BoatLanternGlow.mat", new Color(1f, 0.78f, 0.38f, 1f), new Color(1f, 0.68f, 0.22f, 1f) * 1.6f);
         Material waterSheetMat = GetOrCreateWaterfallMaterial("FinalWaterfallWater.mat", waterfallTex);
         Material mistMat = GetOrCreateParticleMaterial("FinalWaterfallMist.mat", new Color(0.82f, 0.95f, 1f, 0.55f));
 
-        // 1. AncientTempleArch (walkable clearance between pillars)
+        // 1. AncientTempleArch (walkable clearance between pillars + deep stone pillar foundations)
         GameObject arch = new GameObject("AncientTempleArch");
+        CreatePart(arch.transform, "PillarFoundation_L", PrimitiveType.Cube, new Vector3(-2.65f, -1.25f, 0f), Vector3.zero, new Vector3(1.75f, 2.8f, 1.75f), darkCliffMat, true);
+        CreatePart(arch.transform, "PillarFoundation_R", PrimitiveType.Cube, new Vector3(2.65f, -1.25f, 0f), Vector3.zero, new Vector3(1.75f, 2.8f, 1.75f), darkCliffMat, true);
         CreatePart(arch.transform, "PillarBase_L", PrimitiveType.Cube, new Vector3(-2.65f, 0.45f, 0f), Vector3.zero, new Vector3(1.5f, 0.9f, 1.5f), darkCliffMat, true);
         CreatePart(arch.transform, "PillarBase_R", PrimitiveType.Cube, new Vector3(2.65f, 0.45f, 0f), Vector3.zero, new Vector3(1.5f, 0.9f, 1.5f), darkCliffMat, true);
         CreatePart(arch.transform, "PillarShaft_L", PrimitiveType.Cube, new Vector3(-2.65f, 2.8f, 0f), Vector3.zero, new Vector3(1.15f, 3.8f, 1.15f), mossyStoneMat, true);
@@ -151,19 +175,21 @@ public static class Phase11FinalIslandSetup
         CreatePart(arch.transform, "SconceOrb_R", PrimitiveType.Sphere, new Vector3(2.0f, 2.95f, 0.65f), Vector3.zero, Vector3.one * 0.36f, arcaneGlowMat);
         archPrefab = SavePrefabClean(arch, ArchPrefabPath);
 
-        // 2. AncientStonePillar
+        // 2. AncientStonePillar (with deep stone footing)
         GameObject pillar = new GameObject("AncientStonePillar");
         BoxCollider pCol = pillar.AddComponent<BoxCollider>();
         pCol.center = new Vector3(0f, 2.4f, 0f);
         pCol.size = new Vector3(1.5f, 4.8f, 1.5f);
+        CreatePart(pillar.transform, "PillarFoundationSkirt", PrimitiveType.Cube, new Vector3(0f, -1.25f, 0f), Vector3.zero, new Vector3(1.75f, 2.8f, 1.75f), darkCliffMat);
         CreatePart(pillar.transform, "Plinth", PrimitiveType.Cube, new Vector3(0f, 0.45f, 0f), Vector3.zero, new Vector3(1.55f, 0.9f, 1.55f), darkCliffMat);
         CreatePart(pillar.transform, "ColumnShaft", PrimitiveType.Cylinder, new Vector3(0f, 2.5f, 0f), Vector3.zero, new Vector3(1.12f, 1.8f, 1.12f), mossyStoneMat);
         CreatePart(pillar.transform, "Capital", PrimitiveType.Cube, new Vector3(0f, 4.45f, 0f), Vector3.zero, new Vector3(1.48f, 0.42f, 1.48f), mossyStoneMat);
         CreatePart(pillar.transform, "RunicOrb", PrimitiveType.Sphere, new Vector3(0f, 4.92f, 0f), Vector3.zero, Vector3.one * 0.42f, arcaneGlowMat);
         pillarPrefab = SavePrefabClean(pillar, PillarPrefabPath);
 
-        // 3. AncientTreasureChamber (open sanctuary housing Final Special Chest)
+        // 3. AncientTreasureChamber (open sanctuary housing Final Special Chest + deep cliff foundation skirt)
         GameObject chamber = new GameObject("AncientTreasureChamber");
+        CreatePart(chamber.transform, "ChamberFoundationSkirt", PrimitiveType.Cube, new Vector3(0f, -1.35f, 0f), Vector3.zero, new Vector3(10.0f, 3.0f, 10.0f), darkCliffMat, true);
         CreatePart(chamber.transform, "SanctuaryDais", PrimitiveType.Cube, new Vector3(0f, 0.18f, 0f), Vector3.zero, new Vector3(9.6f, 0.36f, 9.6f), darkCliffMat, true);
         CreatePart(chamber.transform, "GoldInlayRing", PrimitiveType.Cylinder, new Vector3(0f, 0.37f, 0f), Vector3.zero, new Vector3(4.2f, 0.04f, 4.2f), ancientGoldMat);
         CreatePart(chamber.transform, "FrontStair_Low", PrimitiveType.Cube, new Vector3(0f, 0.09f, -5.25f), Vector3.zero, new Vector3(3.6f, 0.18f, 1.1f), mossyStoneMat, true);
@@ -237,6 +263,8 @@ public static class Phase11FinalIslandSetup
         wfCol.center = new Vector3(0f, 5.5f, 1.2f);
         wfCol.size = new Vector3(6.8f, 11f, 3.2f);
 
+        CreatePart(wf.transform, "WaterfallFoundationSkirt", PrimitiveType.Cube, new Vector3(0f, -1.35f, 1.3f), Vector3.zero, new Vector3(7.8f, 3.0f, 3.4f), darkCliffMat);
+        CreatePart(wf.transform, "PlungePoolFoundation", PrimitiveType.Cylinder, new Vector3(0f, -0.95f, -1.6f), Vector3.zero, new Vector3(6.4f, 1.0f, 4.6f), darkCliffMat, true);
         CreatePart(wf.transform, "CliffBacking", PrimitiveType.Cube, new Vector3(0f, 5.5f, 1.3f), Vector3.zero, new Vector3(7.4f, 11.4f, 2.8f), darkCliffMat);
         CreatePart(wf.transform, "CliffLedge_L", PrimitiveType.Cube, new Vector3(-3.3f, 4.8f, 0.3f), new Vector3(0f, 14f, 0f), new Vector3(2.2f, 10.0f, 2.2f), mossyStoneMat);
         CreatePart(wf.transform, "CliffLedge_R", PrimitiveType.Cube, new Vector3(3.3f, 4.8f, 0.3f), new Vector3(0f, -14f, 0f), new Vector3(2.2f, 10.0f, 2.2f), mossyStoneMat);
@@ -257,6 +285,7 @@ public static class Phase11FinalIslandSetup
         mistGo.transform.localPosition = new Vector3(0f, 0.55f, -1.0f);
         mistGo.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
         ParticleSystem mistPs = mistGo.AddComponent<ParticleSystem>();
+        mistPs.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         ParticleSystem.MainModule mMain = mistPs.main;
         mMain.playOnAwake = true;
         mMain.loop = true;
@@ -279,6 +308,42 @@ public static class Phase11FinalIslandSetup
             EditorUtility.SetDirty(dockTimberMat);
 
         waterfallPrefab = SavePrefabClean(wf, WaterfallPrefabPath);
+
+        // 5. AncientRuinHouse (weathered mossy-stone temple dwelling with deep foundation skirt & arcane lanterns)
+        GameObject house = new GameObject("AncientRuinHouse");
+        BoxCollider hCol = house.AddComponent<BoxCollider>();
+        hCol.center = new Vector3(0f, 2.2f, 0f);
+        hCol.size = new Vector3(5.2f, 4.4f, 4.2f);
+        CreatePart(house.transform, "FoundationSkirt", PrimitiveType.Cube, new Vector3(0f, -1.35f, 0f), Vector3.zero, new Vector3(5.7f, 3.0f, 4.7f), darkCliffMat, true);
+        CreatePart(house.transform, "FloorPlinth", PrimitiveType.Cube, new Vector3(0f, 0.25f, 0f), Vector3.zero, new Vector3(5.4f, 0.5f, 4.4f), darkCliffMat);
+        CreatePart(house.transform, "Wall_North", PrimitiveType.Cube, new Vector3(0f, 1.85f, 1.95f), Vector3.zero, new Vector3(5.0f, 2.7f, 0.42f), mossyStoneMat);
+        CreatePart(house.transform, "Wall_West", PrimitiveType.Cube, new Vector3(-2.32f, 1.85f, 0f), Vector3.zero, new Vector3(0.42f, 2.7f, 4.0f), mossyStoneMat);
+        CreatePart(house.transform, "Wall_East", PrimitiveType.Cube, new Vector3(2.32f, 1.85f, 0f), Vector3.zero, new Vector3(0.42f, 2.7f, 4.0f), mossyStoneMat);
+        CreatePart(house.transform, "Wall_SouthL", PrimitiveType.Cube, new Vector3(-1.55f, 1.85f, -1.95f), Vector3.zero, new Vector3(1.8f, 2.7f, 0.42f), darkCliffMat);
+        CreatePart(house.transform, "Wall_SouthR", PrimitiveType.Cube, new Vector3(1.55f, 1.85f, -1.95f), Vector3.zero, new Vector3(1.8f, 2.7f, 0.42f), darkCliffMat);
+        CreatePart(house.transform, "DoorLintel", PrimitiveType.Cube, new Vector3(0f, 2.95f, -1.95f), Vector3.zero, new Vector3(5.2f, 0.52f, 0.52f), mossyStoneMat);
+        CreatePart(house.transform, "DoorGoldTrim", PrimitiveType.Cube, new Vector3(0f, 2.95f, -2.23f), Vector3.zero, new Vector3(2.4f, 0.18f, 0.08f), ancientGoldMat);
+        CreatePart(house.transform, "Roof_Left", PrimitiveType.Cube, new Vector3(-1.45f, 3.85f, 0f), new Vector3(0f, 0f, 26f), new Vector3(3.35f, 0.3f, 4.65f), dockTimberMat);
+        CreatePart(house.transform, "Roof_Right", PrimitiveType.Cube, new Vector3(1.45f, 3.85f, 0f), new Vector3(0f, 0f, -26f), new Vector3(3.35f, 0.3f, 4.65f), dockTimberMat);
+        CreatePart(house.transform, "RoofRidgeBeam", PrimitiveType.Cube, new Vector3(0f, 4.55f, 0f), Vector3.zero, new Vector3(0.42f, 0.42f, 4.9f), ancientGoldMat);
+        CreatePart(house.transform, "SconceOrb_L", PrimitiveType.Sphere, new Vector3(-1.35f, 2.0f, -2.24f), Vector3.zero, Vector3.one * 0.28f, arcaneGlowMat);
+        CreatePart(house.transform, "SconceOrb_R", PrimitiveType.Sphere, new Vector3(1.35f, 2.0f, -2.24f), Vector3.zero, Vector3.one * 0.28f, torchGlowMat);
+        ruinHousePrefab = SavePrefabClean(house, RuinHousePrefabPath);
+
+        // 6. AncientStoneBridge (grounded walkable stone ruin bridge replacing PA_Bridge with -28m stilts)
+        GameObject stBr = new GameObject("AncientStoneBridge");
+        CreatePart(stBr.transform, "BridgeDeck", PrimitiveType.Cube, new Vector3(0f, 0.72f, 0f), Vector3.zero, new Vector3(3.4f, 0.34f, 8.6f), mossyStoneMat, true);
+        CreatePart(stBr.transform, "ApproachRamp_S", PrimitiveType.Cube, new Vector3(0f, 0.16f, -5.6f), new Vector3(-20f, 0f, 0f), new Vector3(3.4f, 0.28f, 3.4f), darkCliffMat, true);
+        CreatePart(stBr.transform, "ApproachRamp_N", PrimitiveType.Cube, new Vector3(0f, 0.16f, 5.6f), new Vector3(20f, 0f, 0f), new Vector3(3.4f, 0.28f, 3.4f), darkCliffMat, true);
+        CreatePart(stBr.transform, "Parapet_L", PrimitiveType.Cube, new Vector3(-1.55f, 1.24f, 0f), Vector3.zero, new Vector3(0.28f, 0.72f, 8.6f), darkCliffMat, true);
+        CreatePart(stBr.transform, "Parapet_R", PrimitiveType.Cube, new Vector3(1.55f, 1.24f, 0f), Vector3.zero, new Vector3(0.28f, 0.72f, 8.6f), darkCliffMat, true);
+        for (int p = -1; p <= 1; p++)
+        {
+            float pz = p * 3.8f;
+            CreatePart(stBr.transform, "StonePier_L_" + (p + 2), PrimitiveType.Cube, new Vector3(-1.55f, -0.75f, pz), Vector3.zero, new Vector3(0.46f, 3.4f, 0.46f), mossyStoneMat, true);
+            CreatePart(stBr.transform, "StonePier_R_" + (p + 2), PrimitiveType.Cube, new Vector3(1.55f, -0.75f, pz), Vector3.zero, new Vector3(0.46f, 3.4f, 0.46f), mossyStoneMat, true);
+        }
+        stoneBridgePrefab = SavePrefabClean(stBr, BridgePrefabPath);
     }
 
     private static void BuildFinalOverviewInGameScene(
@@ -286,15 +351,18 @@ public static class Phase11FinalIslandSetup
         GameObject archPrefab,
         GameObject pillarPrefab,
         GameObject chamberPrefab,
-        GameObject waterfallPrefab)
+        GameObject waterfallPrefab,
+        GameObject ruinHousePrefab,
+        GameObject stoneBridgePrefab)
     {
         DestroyRootIfExists(gameScene, "FinalIslandOverview");
 
-        Terrain discoveryTerrain = FindSceneObjectByName(gameScene, "DiscoveryIsland_MainTerrain")?.GetComponent<Terrain>();
-        TerrainData finalData = AssetDatabase.LoadAssetAtPath<TerrainData>(FinalTerrainPath);
-        float finalWidth = finalData != null ? finalData.size.x : 500f;
-        float safeX = discoveryTerrain != null ? (discoveryTerrain.transform.position.x - finalWidth - 25f) : -860f;
-        float safeZ = discoveryTerrain != null ? (discoveryTerrain.transform.position.z + 35f) : 185f;
+        GameObject discTerrainGo = FindSceneObjectByName(gameScene, "DiscoveryIsland_MainTerrain");
+        Terrain discoveryTerrain = discTerrainGo != null ? discTerrainGo.GetComponent<Terrain>() : null;
+        TerrainData finalData = GetOrCreateRightSizedFinalTerrain();
+        float finalWidth = finalData != null ? finalData.size.x : 480f;
+        float safeX = discoveryTerrain != null ? (discoveryTerrain.transform.position.x - finalWidth - 120f) : -740f;
+        float safeZ = discoveryTerrain != null ? (discoveryTerrain.transform.position.z + 40f) : 100f;
 
         GameObject root = new GameObject("FinalIslandOverview");
         SceneManager.MoveGameObjectToScene(root, gameScene);
@@ -305,18 +373,47 @@ public static class Phase11FinalIslandSetup
         terrainGo.transform.localPosition = Vector3.zero;
         Terrain terrain = terrainGo.AddComponent<Terrain>();
         terrain.terrainData = finalData;
+        terrain.materialTemplate = IslandPlacementUtility.GetOrCreateUrpTerrainMaterial();
         TerrainCollider tc = terrainGo.AddComponent<TerrainCollider>();
         tc.terrainData = finalData;
 
-        Vector3 dockWorld = FindSouthernShorelineWorld(terrain);
-        InstantiateAssetAtWorld(DockPrefabPath, root.transform, "FinalDock_Overview", dockWorld, 90f);
+        IslandPlacementUtility.FindClearWaterShorelineDock(terrain, out Vector3 shoreEdge, out Vector3 inlandDir);
+        Quaternion dockRot = Quaternion.LookRotation(inlandDir, Vector3.up);
+        Vector3 rightDir = Vector3.Cross(Vector3.up, inlandDir).normalized;
+        float dockYaw = dockRot.eulerAngles.y;
 
-        // BoatDockPoint_Final wired to BoatDocking + shared HealthCanvas HUD
+        Material timberMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/FinalAncientTimber.mat");
+        Material goldMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/FinalAncientGold.mat");
+        Material ropeMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/QuizBoardRope.mat");
+        if (ropeMat == null) ropeMat = timberMat;
+        Material glowMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/FinalArcaneGlow.mat");
+        Material buoyMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/DockBuoyRed.mat");
+
+        IslandPlacementUtility.BuildRealisticHarborPier(
+            root.transform,
+            "FinalHarborPier_Overview",
+            shoreEdge,
+            inlandDir,
+            rightDir,
+            terrain,
+            timberMat,
+            goldMat,
+            ropeMat,
+            glowMat,
+            BarrelPath,
+            CratePath,
+            true,
+            out Vector3 pierOuterTip,
+            out Vector3 pierDeckCenter,
+            out Vector3 beachEntryPos
+        );
+
+        // BoatDockPoint_Final wired to BoatDocking + shared HealthCanvas HUD off pierhead
         BoatDocking discoveryDock = FindDiscoveryDock(gameScene);
         GameObject dockPointGo = new GameObject("BoatDockPoint_Final");
         dockPointGo.transform.SetParent(root.transform, false);
-        dockPointGo.transform.position = new Vector3(dockWorld.x, 0.6f, dockWorld.z - 6.0f);
-        dockPointGo.transform.rotation = Quaternion.identity;
+        dockPointGo.transform.position = pierOuterTip - inlandDir * 3.2f;
+        dockPointGo.transform.rotation = dockRot;
 
         BoatDocking finalDocking = dockPointGo.AddComponent<BoatDocking>();
         finalDocking.islandIndex = 2;
@@ -326,7 +423,7 @@ public static class Phase11FinalIslandSetup
         finalDocking.transitionToIslandScene = true;
         finalDocking.dockingDistance = 12f;
         finalDocking.boat = discoveryDock != null ? discoveryDock.boat : FindSceneObjectByName(gameScene, "OldWoodenRowboat_Complete");
-        finalDocking.quizManager = discoveryDock != null ? discoveryDock.quizManager : Object.FindFirstObjectByType<QuizManager>();
+        finalDocking.quizManager = discoveryDock != null ? discoveryDock.quizManager : Object.FindAnyObjectByType<QuizManager>();
         if (discoveryDock != null)
         {
             finalDocking.promptPanel = discoveryDock.promptPanel;
@@ -336,34 +433,32 @@ public static class Phase11FinalIslandSetup
 
         GameObject parkGo = new GameObject("DockParkingPoint");
         parkGo.transform.SetParent(dockPointGo.transform, false);
-        parkGo.transform.localPosition = new Vector3(0f, -0.55f, -2.0f);
+        parkGo.transform.localPosition = new Vector3(0f, -0.52f, -1.8f);
         parkGo.transform.localRotation = Quaternion.identity;
         finalDocking.dockParkingPoint = parkGo.transform;
 
         GameObject retSpawnGo = new GameObject("BoatReturnSpawnPoint");
         retSpawnGo.transform.SetParent(dockPointGo.transform, false);
-        retSpawnGo.transform.localPosition = new Vector3(0f, -0.55f, -7.2f);
+        retSpawnGo.transform.localPosition = new Vector3(0f, -0.52f, -6.5f);
         retSpawnGo.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
         finalDocking.boatReturnSpawnPoint = retSpawnGo.transform;
 
-        // Floating Final Guide Buoy & dock guardian pillars
-        Material buoyMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/DockBuoyRed.mat");
-        Material brassMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/FinalAncientGold.mat");
-        Material glowMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/FinalArcaneGlow.mat");
-
+        // Floating Final Guide Buoy & dock guardian pillars framing beach plaza entry
         GameObject buoy = new GameObject("FinalGuideBuoy");
         buoy.transform.SetParent(dockPointGo.transform, false);
-        buoy.transform.localPosition = new Vector3(-4.5f, -0.55f, -5.0f);
+        buoy.transform.localPosition = new Vector3(-4.5f, -0.55f, -3.5f);
         buoy.AddComponent<GentleFloat>();
         CreatePart(buoy.transform, "Base", PrimitiveType.Cylinder, Vector3.zero, Vector3.zero, new Vector3(0.85f, 0.32f, 0.85f), buoyMat);
-        CreatePart(buoy.transform, "Tower", PrimitiveType.Cylinder, new Vector3(0f, 0.55f, 0f), Vector3.zero, new Vector3(0.22f, 0.45f, 0.22f), brassMat);
+        CreatePart(buoy.transform, "Tower", PrimitiveType.Cylinder, new Vector3(0f, 0.55f, 0f), Vector3.zero, new Vector3(0.22f, 0.45f, 0.22f), goldMat);
         CreatePart(buoy.transform, "Beacon", PrimitiveType.Sphere, new Vector3(0f, 1.05f, 0f), Vector3.zero, Vector3.one * 0.34f, glowMat);
 
-        InstantiatePrefabAtWorld(pillarPrefab, root.transform, "Overview_DockPillar_L", new Vector3(dockWorld.x - 2.8f, dockWorld.y + 0.2f, dockWorld.z + 0.8f), 0f);
-        InstantiatePrefabAtWorld(pillarPrefab, root.transform, "Overview_DockPillar_R", new Vector3(dockWorld.x + 2.8f, dockWorld.y + 0.2f, dockWorld.z + 0.8f), 0f);
+        GameObject ovPilL = InstantiatePrefabAtWorld(pillarPrefab, root.transform, "Overview_DockPillar_L", beachEntryPos - rightDir * 3.4f, dockYaw);
+        IslandPlacementUtility.GroundBuildingWithFoundation(ovPilL, terrain, 0.9f, 0.9f, 0.04f);
+        GameObject ovPilR = InstantiatePrefabAtWorld(pillarPrefab, root.transform, "Overview_DockPillar_R", beachEntryPos + rightDir * 3.4f, dockYaw);
+        IslandPlacementUtility.GroundBuildingWithFoundation(ovPilR, terrain, 0.9f, 0.9f, 0.04f);
 
-        // Shared Final ruins & waterfall silhouette matching IslandScene
-        PopulateSharedFinalEnvironment(root.transform, terrain, dockWorld, archPrefab, pillarPrefab, chamberPrefab, waterfallPrefab, true);
+        // Shared Final ruins & waterfall silhouette matching IslandScene (terrain pads already leveled)
+        PopulateSharedFinalEnvironment(root.transform, terrain, beachEntryPos, inlandDir, rightDir, archPrefab, pillarPrefab, chamberPrefab, waterfallPrefab, ruinHousePrefab, stoneBridgePrefab, true, false);
         DisableDecorativePointShadows(gameScene);
     }
 
@@ -373,6 +468,8 @@ public static class Phase11FinalIslandSetup
         GameObject pillarPrefab,
         GameObject chamberPrefab,
         GameObject waterfallPrefab,
+        GameObject ruinHousePrefab,
+        GameObject stoneBridgePrefab,
         GameObject regularChestPrefab,
         GameObject specialChestPrefab)
     {
@@ -388,45 +485,62 @@ public static class Phase11FinalIslandSetup
         atmo.sunEulerAngles = new Vector3(28f, -130f, 0f);
         atmo.fogColor = new Color(0.28f, 0.3f, 0.42f, 1f);
         atmo.fogDensity = 0.0038f;
-        atmo.ambientSkyColor = new Color(0.36f, 0.34f, 0.48f, 1f);
+        atmo.ambientSkyColor = new Color(0.58f, 0.56f, 0.70f, 1f);
 
-        TerrainData finalData = AssetDatabase.LoadAssetAtPath<TerrainData>(FinalTerrainPath);
+        TerrainData finalData = GetOrCreateRightSizedFinalTerrain();
         GameObject terrainGo = new GameObject("FinalIsland_Terrain");
         terrainGo.transform.SetParent(finalRoot.transform, false);
         terrainGo.transform.localPosition = Vector3.zero;
         Terrain terrain = terrainGo.AddComponent<Terrain>();
         terrain.terrainData = finalData;
+        terrain.materialTemplate = IslandPlacementUtility.GetOrCreateUrpTerrainMaterial();
         TerrainCollider tc = terrainGo.AddComponent<TerrainCollider>();
         tc.terrainData = finalData;
 
-        Vector3 dockWorld = FindSouthernShorelineWorld(terrain);
+        IslandPlacementUtility.FindClearWaterShorelineDock(terrain, out Vector3 shoreEdge, out Vector3 inlandDir);
+        Quaternion dockRot = Quaternion.LookRotation(inlandDir, Vector3.up);
+        Vector3 rightDir = Vector3.Cross(Vector3.up, inlandDir).normalized;
+        float dockYaw = dockRot.eulerAngles.y;
 
-        // Final Dock Area
+        // Realistic 15m Ancient Temple Harbor Pier + Return Boat + Repair Workbench + Pillars
         GameObject dockArea = new GameObject("FinalDockArea");
         dockArea.transform.SetParent(finalRoot.transform, false);
 
-        InstantiateAssetAtWorld(DockPrefabPath, dockArea.transform, "FinalDock", dockWorld, 90f);
-        InstantiatePrefabAtWorld(pillarPrefab, dockArea.transform, "DockPillar_L", new Vector3(dockWorld.x - 2.8f, dockWorld.y + 0.25f, dockWorld.z + 0.8f), 0f);
-        InstantiatePrefabAtWorld(pillarPrefab, dockArea.transform, "DockPillar_R", new Vector3(dockWorld.x + 2.8f, dockWorld.y + 0.25f, dockWorld.z + 0.8f), 0f);
-
         Material timberMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/FinalAncientTimber.mat");
         Material goldMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/FinalAncientGold.mat");
-        Material stoneMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/FinalMossyStone.mat");
+        Material ropeMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/QuizBoardRope.mat");
+        if (ropeMat == null) ropeMat = timberMat;
+        Material glowMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/FinalArcaneGlow.mat");
         Material sparkleMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/BoatSparkleParticle.mat");
 
-        Vector3 rampEnd = FindWalkablePoint(terrain, dockWorld.x, dockWorld.z + 11.5f, 10f);
-        Vector3 rampStart = new Vector3(dockWorld.x, dockWorld.y + 0.3f, dockWorld.z + 3.8f);
-        Vector3 rampMid = (rampStart + rampEnd) * 0.5f - new Vector3(0f, 0.08f, 0f);
-        float rampLen = Vector3.Distance(rampStart, rampEnd) + 1.0f;
+        IslandPlacementUtility.BuildRealisticHarborPier(
+            dockArea.transform,
+            "FinalHarborPier",
+            shoreEdge,
+            inlandDir,
+            rightDir,
+            terrain,
+            timberMat,
+            goldMat,
+            ropeMat,
+            glowMat,
+            BarrelPath,
+            CratePath,
+            true,
+            out Vector3 pierOuterTip,
+            out Vector3 pierDeckCenter,
+            out Vector3 beachEntryPos
+        );
 
-        GameObject rampGo = CreatePart(dockArea.transform, "FinalDockRamp", PrimitiveType.Cube, rampMid, Vector3.zero, new Vector3(4.6f, 0.28f, rampLen), timberMat, true);
-        rampGo.transform.position = rampMid;
-        rampGo.transform.LookAt(rampEnd);
-        CreatePart(rampGo.transform, "RampRail_L", PrimitiveType.Cube, new Vector3(-0.48f, 1.3f, 0f), Vector3.zero, new Vector3(0.05f, 1.8f, 1f), stoneMat, true);
-        CreatePart(rampGo.transform, "RampRail_R", PrimitiveType.Cube, new Vector3(0.48f, 1.3f, 0f), Vector3.zero, new Vector3(0.05f, 1.8f, 1f), stoneMat, true);
+        GameObject dPilL = InstantiatePrefabAtWorld(pillarPrefab, dockArea.transform, "DockPillar_L", beachEntryPos - rightDir * 3.4f, dockYaw);
+        IslandPlacementUtility.GroundBuildingWithFoundation(dPilL, terrain, 0.9f, 0.9f, 0.04f);
+        GameObject dPilR = InstantiatePrefabAtWorld(pillarPrefab, dockArea.transform, "DockPillar_R", beachEntryPos + rightDir * 3.4f, dockYaw);
+        IslandPlacementUtility.GroundBuildingWithFoundation(dPilR, terrain, 0.9f, 0.9f, 0.04f);
 
         // Return Boat & Dock Repair Workbench
-        GameObject returnBoat = InstantiateAssetAtWorld(BoatPrefabPath, dockArea.transform, "FinalDockedBoat_Return", new Vector3(dockWorld.x, 0.08f, dockWorld.z - 6.2f), 180f);
+        Vector3 retPos = pierOuterTip - inlandDir * 3.0f;
+        retPos.y = 0.08f;
+        GameObject returnBoat = InstantiateAssetAtWorld(BoatPrefabPath, dockArea.transform, "FinalDockedBoat_Return", retPos, dockYaw + 180f);
         BoatMovement bm = returnBoat.GetComponent<BoatMovement>(); if (bm != null) Object.DestroyImmediate(bm);
         BoatSink bs = returnBoat.GetComponent<BoatSink>(); if (bs != null) Object.DestroyImmediate(bs);
         GentleFloat gf = returnBoat.AddComponent<GentleFloat>();
@@ -437,57 +551,90 @@ public static class Phase11FinalIslandSetup
         boatRet.oceanSceneName = "GameScene";
         boatRet.interactRange = 8.5f;
 
-        BuildDockRepairBench(dockArea.transform, new Vector3(dockWorld.x + 2.15f, dockWorld.y + 0.38f, dockWorld.z + 1.5f), timberMat, goldMat, sparkleMat);
+        BuildDockRepairBench(dockArea.transform, pierDeckCenter + rightDir * 1.85f, dockRot, timberMat, goldMat, sparkleMat);
 
         GameObject spawnGo = new GameObject("FinalSpawnPoint");
         spawnGo.transform.SetParent(dockArea.transform, false);
-        spawnGo.transform.position = new Vector3(dockWorld.x, dockWorld.y + 0.85f, dockWorld.z - 0.5f);
-        spawnGo.transform.rotation = Quaternion.identity;
+        spawnGo.transform.position = pierDeckCenter + Vector3.up * 0.06f;
+        spawnGo.transform.rotation = dockRot;
 
-        // Shared + Detailed Ancient Ruin Environment
-        Vector3 chamberPos = PopulateSharedFinalEnvironment(finalRoot.transform, terrain, dockWorld, archPrefab, pillarPrefab, chamberPrefab, waterfallPrefab, false);
+        // Shared + Detailed Ancient Ruin Environment (populated first so OverlapCapsule + footprints guarantee zero overlap!)
+        Vector3 chamberPos = PopulateSharedFinalEnvironment(finalRoot.transform, terrain, beachEntryPos, inlandDir, rightDir, archPrefab, pillarPrefab, chamberPrefab, waterfallPrefab, ruinHousePrefab, stoneBridgePrefab, false, true);
+        Physics.SyncTransforms();
 
-        // 6 Accessible Final Treasure Chests (Hard Regular -> Final Special Chest in Ancient Treasure Chamber)
+        Vector3 orinSpot = IslandPlacementUtility.FindUnobstructedSpot(terrain, beachEntryPos.x - rightDir.x * 4.2f + inlandDir.x * 8.0f, beachEntryPos.z - rightDir.z * 4.2f + inlandDir.z * 8.0f, 8f, 1.0f);
+        IslandPlacementUtility.BuildIslandGuideNpc(
+            finalRoot.transform,
+            terrain,
+            orinSpot,
+            dockYaw + 180f,
+            2,
+            "Scholar Orin",
+            "You made it to Final Treasure Island! The Legendary Golden Crown awaits at the top of Pilgrim Avenue.",
+            "Tip: Answer Hard challenges carefully—remember you can spend 10 Coins on a 50/50 Hint anytime!",
+            25,
+            new Color(0.26f, 0.24f, 0.56f, 1f),
+            new Color(0.84f, 0.66f, 0.22f, 1f)
+        );
+
+        // 6 Well-Spaced, Accessible Final Treasure Chests + 8-Spot Respawn Pool
         GameObject chestsRoot = new GameObject("FinalChests");
         chestsRoot.transform.SetParent(finalRoot.transform, false);
 
-        Vector2[] regOffsets = new Vector2[]
+        List<IslandPlacementUtility.PlacedFootprint> chestSpots = new List<IslandPlacementUtility.PlacedFootprint>();
+        Vector2[] respawnOffsets = new Vector2[]
         {
-            new Vector2(-18f, 20f),  // 1: Dockside Ruins Cove
-            new Vector2(18f, 34f),   // 2: Fallen Pillar Courtyard
-            new Vector2(-24f, 46f),  // 3: Waterfall Mist Clearing
-            new Vector2(-32f, 70f),  // 4: Western Cliff Overlook
-            new Vector2(24f, 64f)    // 5: Ancient Archway Terrace
+            new Vector2(-20f, 16f),
+            new Vector2(20f, 32f),
+            new Vector2(-24f, 44f),
+            new Vector2(-28f, 68f),
+            new Vector2(26f, 62f),
+            new Vector2(-10f, 34f),
+            new Vector2(12f, 48f),
+            new Vector2(-16f, 82f)
         };
-        float[] regYaws = new float[] { 135f, -135f, 110f, 145f, -150f };
-
-        for (int i = 0; i < regOffsets.Length; i++)
+        Vector3[] respawnPool = new Vector3[respawnOffsets.Length];
+        for (int i = 0; i < respawnOffsets.Length; i++)
         {
-            Vector3 p = FindWalkablePoint(terrain, dockWorld.x + regOffsets[i].x, dockWorld.z + regOffsets[i].y, 16f);
+            Vector3 rp = beachEntryPos + rightDir * respawnOffsets[i].x + inlandDir * respawnOffsets[i].y;
+            respawnPool[i] = FindSpacedChestSpot(terrain, rp.x, rp.z, 20f, 8.5f, chestSpots);
+        }
+
+        Vector3 aveCenter = beachEntryPos + inlandDir * 48f;
+        for (int i = 0; i < 5; i++)
+        {
+            Vector3 p = respawnPool[i];
+            Vector3 look = aveCenter - p;
+            look.y = 0f;
+            Quaternion cRot = look.sqrMagnitude > 0.1f ? Quaternion.LookRotation(look.normalized, Vector3.up) : dockRot;
+
             GameObject cObj = (GameObject)PrefabUtility.InstantiatePrefab(regularChestPrefab, chestsRoot.transform);
             cObj.name = "FinalChest_Regular_" + (i + 1);
             cObj.transform.position = p;
-            cObj.transform.rotation = Quaternion.Euler(0f, regYaws[i], 0f);
+            cObj.transform.rotation = cRot;
+            IslandPlacementUtility.GroundObjectExactToTerrain(cObj, terrain, 0.04f);
             TreasureChest tcScript = cObj.GetComponent<TreasureChest>();
             tcScript.chestId = "final_regular_" + (i + 1);
             tcScript.islandIndex = 2;
             tcScript.isSpecialChest = false;
+            tcScript.respawnCandidateSpots = respawnPool;
             EditorUtility.SetDirty(tcScript);
         }
 
         // Special Chest squarely inside AncientTreasureChamber dais (final_special_1 -> Golden Crown + Victory!)
         GameObject specialObj = (GameObject)PrefabUtility.InstantiatePrefab(specialChestPrefab, chestsRoot.transform);
         specialObj.name = "FinalChest_Special";
-        specialObj.transform.position = chamberPos + Vector3.up * 0.36f;
-        specialObj.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+        specialObj.transform.position = chamberPos + Vector3.up * 0.38f;
+        specialObj.transform.rotation = Quaternion.Euler(0f, dockYaw + 180f, 0f);
         TreasureChest spTc = specialObj.GetComponent<TreasureChest>();
         spTc.chestId = "final_special_1";
         spTc.islandIndex = 2;
         spTc.isSpecialChest = true;
+        spTc.respawnCandidateSpots = respawnPool;
         EditorUtility.SetDirty(spTc);
 
         // Wire FinalTreasureIsland & FinalSpawnPoint into IslandSceneController; keep DiscoveryIsland active by default
-        IslandSceneController sceneCtrl = Object.FindFirstObjectByType<IslandSceneController>();
+        IslandSceneController sceneCtrl = Object.FindAnyObjectByType<IslandSceneController>();
         if (sceneCtrl != null)
         {
             sceneCtrl.finalTreasureIslandRoot = finalRoot;
@@ -506,161 +653,372 @@ public static class Phase11FinalIslandSetup
     private static Vector3 PopulateSharedFinalEnvironment(
         Transform parent,
         Terrain terrain,
-        Vector3 dockWorld,
+        Vector3 beachEntryPos,
+        Vector3 inlandDir,
+        Vector3 rightDir,
         GameObject archPrefab,
         GameObject pillarPrefab,
         GameObject chamberPrefab,
         GameObject waterfallPrefab,
-        bool overviewOnly)
+        GameObject ruinHousePrefab,
+        GameObject stoneBridgePrefab,
+        bool overviewOnly,
+        bool flattenPads)
     {
         GameObject env = new GameObject(overviewOnly ? "FinalOverviewEnv" : "FinalEnvironment");
         env.transform.SetParent(parent, false);
 
+        float dockYaw = Quaternion.LookRotation(inlandDir, Vector3.up).eulerAngles.y;
         Material stoneMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/FinalMossyStone.mat");
 
-        // Sanctuary position (landmark matched between GameScene and IslandScene)
-        Vector3 chamberPos = FindWalkablePoint(terrain, dockWorld.x + 2f, dockWorld.z + 82f, 18f);
-        InstantiatePrefabAtWorld(chamberPrefab, env.transform, "AncientTreasureChamber_Sanctuary", chamberPos, 0f);
+        List<IslandPlacementUtility.PlacedFootprint> placed = new List<IslandPlacementUtility.PlacedFootprint>();
 
-        // Temple Entry Archways along the sacred ascent
-        Vector3 arch1Pos = FindWalkablePoint(terrain, dockWorld.x, dockWorld.z + 24f, 12f);
-        InstantiatePrefabAtWorld(archPrefab, env.transform, "TempleArch_Lower", arch1Pos, 0f);
-
-        Vector3 arch2Pos = FindWalkablePoint(terrain, dockWorld.x + 1f, dockWorld.z + 56f, 14f);
-        InstantiatePrefabAtWorld(archPrefab, env.transform, "TempleArch_Upper", arch2Pos, 0f);
-
-        // Cascading Ancient Waterfall flanking the western valley
-        Vector3 waterfallPos = FindWalkablePoint(terrain, dockWorld.x - 28f, dockWorld.z + 54f, 18f);
-        InstantiatePrefabAtWorld(waterfallPrefab, env.transform, "AncientWaterfall_Valley", waterfallPos, 28f);
-
-        // Ancient Stone Bridge near lower ruins stream
-        Vector3 bridgePos = FindWalkablePoint(terrain, dockWorld.x - 16f, dockWorld.z + 34f, 14f);
-        GameObject bridge = InstantiateAssetAtWorld(BridgePrefabPath, env.transform, "AncientRuinBridge", bridgePos, -15f);
-        EnsureSolidColliders(bridge, true);
-
-        // Dense jungle/ancient trees with trunk colliders + WindSway
-        Vector2[] treeOffsets = new Vector2[]
+        // 1. Reserve Harbor Plaza & Flagstone Pilgrim Avenue from Beach to Sanctuary (92m inland)
+        placed.Add(new IslandPlacementUtility.PlacedFootprint(beachEntryPos, 11.5f));
+        Vector3[] aveNodes = new Vector3[14];
+        for (int i = 0; i < aveNodes.Length; i++)
         {
-            new Vector2(-22f, 18f), new Vector2(22f, 20f), new Vector2(-30f, 36f), new Vector2(28f, 38f),
-            new Vector2(-36f, 52f), new Vector2(34f, 56f), new Vector2(-22f, 74f), new Vector2(26f, 76f),
-            new Vector2(-12f, 92f), new Vector2(14f, 94f), new Vector2(-14f, 44f), new Vector2(16f, 46f),
-            new Vector2(-38f, 26f), new Vector2(38f, 28f), new Vector2(-40f, 68f), new Vector2(38f, 72f),
-            new Vector2(-10f, 22f), new Vector2(10f, 22f), new Vector2(-8f, 66f), new Vector2(12f, 68f)
+            float dist = 6f + i * 6.2f;
+            float sway = Mathf.Sin(i * 0.4f) * 2.2f;
+            Vector3 at = beachEntryPos + rightDir * sway + inlandDir * dist;
+            aveNodes[i] = IslandPlacementUtility.FindFlatWalkablePoint(terrain, at.x, at.z, 8f, 22f, 0.75f);
+            placed.Add(new IslandPlacementUtility.PlacedFootprint(aveNodes[i], 5.0f));
+        }
+
+        // 2. AncientTreasureChamber Sanctuary at Avenue Summit (leveled pad + deep cliff skirt)
+        Vector3 chTarget = beachEntryPos + inlandDir * 92f;
+        Vector3 chamberPos;
+        if (IslandPlacementUtility.FindFlatBuildingPad(terrain, chTarget.x, chTarget.z, 26f, 5.4f, 5.4f, 1.8f, 1.2f, placed, out Vector3 foundCh, out float chPadY))
+        {
+            if (flattenPads)
+                IslandPlacementUtility.FlattenTerrainPad(terrain, foundCh, 5.4f, 5.4f, dockYaw, 4.5f, chPadY);
+            chamberPos = foundCh;
+        }
+        else
+        {
+            chamberPos = IslandPlacementUtility.FindFlatWalkablePoint(terrain, chTarget.x, chTarget.z, 24f, 22f, 1.0f);
+            placed.Add(new IslandPlacementUtility.PlacedFootprint(chamberPos, 8.5f));
+            if (flattenPads)
+                IslandPlacementUtility.FlattenTerrainPad(terrain, chamberPos, 5.4f, 5.4f, dockYaw, 4.5f, chamberPos.y);
+        }
+        GameObject chamberGo = InstantiatePrefabAtWorld(chamberPrefab, env.transform, "AncientTreasureChamber_Sanctuary", chamberPos, dockYaw);
+        IslandPlacementUtility.GroundBuildingWithFoundation(chamberGo, terrain, 5.0f, 5.0f, 0.04f);
+        IslandPlacementUtility.EnsureExactSolidColliders(chamberGo, false, true);
+        chamberPos = chamberGo.transform.position;
+
+        // 3. Temple Entry Archways straddling Pilgrim Avenue + Western Valley Waterfall
+        Vector3 a1t = beachEntryPos + inlandDir * 22f;
+        Vector3 arch1Pos = IslandPlacementUtility.FindFlatWalkablePoint(terrain, a1t.x, a1t.z, 10f, 20f, 0.9f);
+        if (flattenPads)
+            IslandPlacementUtility.FlattenTerrainPad(terrain, arch1Pos, 3.8f, 1.4f, dockYaw, 3.5f, arch1Pos.y);
+        GameObject arch1 = InstantiatePrefabAtWorld(archPrefab, env.transform, "TempleArch_Lower", arch1Pos, dockYaw);
+        IslandPlacementUtility.GroundBuildingWithFoundation(arch1, terrain, 3.5f, 1.2f, 0.04f);
+
+        Vector3 a2t = beachEntryPos + inlandDir * 60f;
+        Vector3 arch2Pos = IslandPlacementUtility.FindFlatWalkablePoint(terrain, a2t.x, a2t.z, 10f, 20f, 0.9f);
+        if (flattenPads)
+            IslandPlacementUtility.FlattenTerrainPad(terrain, arch2Pos, 3.8f, 1.4f, dockYaw, 3.5f, arch2Pos.y);
+        GameObject arch2 = InstantiatePrefabAtWorld(archPrefab, env.transform, "TempleArch_Upper", arch2Pos, dockYaw);
+        IslandPlacementUtility.GroundBuildingWithFoundation(arch2, terrain, 3.5f, 1.2f, 0.04f);
+
+        Vector3 wft = beachEntryPos - rightDir * 32f + inlandDir * 56f;
+        if (IslandPlacementUtility.FindFlatBuildingPad(terrain, wft.x, wft.z, 22f, 4.4f, 3.8f, 2.0f, 1.2f, placed, out Vector3 waterfallPos, out float wfPadY))
+        {
+            float wfYaw = dockYaw + 28f;
+            if (flattenPads)
+                IslandPlacementUtility.FlattenTerrainPad(terrain, waterfallPos, 4.4f, 3.8f, wfYaw, 4.0f, wfPadY);
+            GameObject wfGo = InstantiatePrefabAtWorld(waterfallPrefab, env.transform, "AncientWaterfall_Valley", waterfallPos, wfYaw);
+            IslandPlacementUtility.GroundBuildingWithFoundation(wfGo, terrain, 4.0f, 3.2f, 0.06f);
+        }
+
+        // 4. 8 Ancient Temple Dwellings on verified flat pads facing Pilgrim Avenue
+        Vector2[] villageOffsets = new Vector2[]
+        {
+            new Vector2(-15f, 24f),
+            new Vector2(15f, 24f),
+            new Vector2(-16f, 44f),
+            new Vector2(16f, 44f),
+            new Vector2(-16f, 64f),
+            new Vector2(16f, 64f),
+            new Vector2(-25f, 34f),
+            new Vector2(25f, 76f)
         };
-        int treeLimit = overviewOnly ? 10 : treeOffsets.Length;
-        for (int i = 0; i < treeLimit; i++)
+        int houseLimit = overviewOnly ? 5 : villageOffsets.Length;
+        for (int i = 0; i < houseLimit; i++)
         {
-            Vector3 p = FindWalkablePoint(terrain, dockWorld.x + treeOffsets[i].x, dockWorld.z + treeOffsets[i].y, 12f);
-            GameObject tree = InstantiateAssetAtWorld(TreePaths[i % TreePaths.Length], env.transform, "AncientTree_" + (i + 1), p, i * 41f);
-            if (!overviewOnly) EnsureTreeTrunkCollider(tree);
-            if (tree != null && tree.GetComponent<WindSway>() == null)
+            Vector3 ht = beachEntryPos + rightDir * villageOffsets[i].x + inlandDir * villageOffsets[i].y;
+            if (!IslandPlacementUtility.FindFlatBuildingPad(terrain, ht.x, ht.z, 20f, 3.3f, 2.8f, 1.6f, 1.1f, placed, out Vector3 hp, out float hPadY))
+                continue;
+
+            float distAlongAve = Vector3.Dot(hp - beachEntryPos, inlandDir);
+            Vector3 aveRef = beachEntryPos + inlandDir * Mathf.Clamp(distAlongAve, 14f, 84f);
+            Vector3 faceDir = aveRef - hp;
+            faceDir.y = 0f;
+            float yaw = faceDir.sqrMagnitude > 0.1f ? Quaternion.LookRotation(faceDir.normalized, Vector3.up).eulerAngles.y + 180f : dockYaw + 180f;
+
+            if (flattenPads)
+                IslandPlacementUtility.FlattenTerrainPad(terrain, hp, 3.3f, 2.8f, yaw, 3.8f, hPadY);
+
+            GameObject house = InstantiatePrefabAtWorld(ruinHousePrefab, env.transform, "AncientRuinHouse_" + (i + 1), hp, yaw);
+            IslandPlacementUtility.GroundBuildingWithFoundation(house, terrain, 2.8f, 2.3f, 0.04f);
+            IslandPlacementUtility.EnsureExactSolidColliders(house, false, false);
+        }
+
+        // 5. 2 Grounded AncientStoneBridge Spans (1 overview, 2 detailed)
+        Vector3 b1t = beachEntryPos - rightDir * 16f + inlandDir * 32f;
+        if (IslandPlacementUtility.FindFlatBuildingPad(terrain, b1t.x, b1t.z, 16f, 2.2f, 6.2f, 1.2f, 1.0f, placed, out Vector3 bridgePos, out float b1PadY))
+        {
+            float b1Yaw = dockYaw - 15f;
+            if (flattenPads)
+                IslandPlacementUtility.FlattenTerrainPad(terrain, bridgePos, 2.2f, 6.2f, b1Yaw, 3.6f, b1PadY);
+            GameObject bridge = InstantiatePrefabAtWorld(stoneBridgePrefab, env.transform, "AncientRuinBridge", bridgePos, b1Yaw);
+            IslandPlacementUtility.GroundBuildingWithFoundation(bridge, terrain, 1.8f, 5.8f, 0.04f);
+            IslandPlacementUtility.EnsureExactSolidColliders(bridge, false, true);
+        }
+
+        if (!overviewOnly)
+        {
+            Vector3 b2t = beachEntryPos + rightDir * 16f + inlandDir * 54f;
+            if (IslandPlacementUtility.FindFlatBuildingPad(terrain, b2t.x, b2t.z, 16f, 2.2f, 6.2f, 1.2f, 1.0f, placed, out Vector3 northBridgePos, out float b2PadY))
             {
-                WindSway ws = tree.AddComponent<WindSway>();
-                ws.swayAngle = 2.2f;
+                float b2Yaw = dockYaw + 18f;
+                if (flattenPads)
+                    IslandPlacementUtility.FlattenTerrainPad(terrain, northBridgePos, 2.2f, 6.2f, b2Yaw, 3.6f, b2PadY);
+                GameObject northBridge = InstantiatePrefabAtWorld(stoneBridgePrefab, env.transform, "AncientRuinBridge_North", northBridgePos, b2Yaw);
+                IslandPlacementUtility.GroundBuildingWithFoundation(northBridge, terrain, 1.8f, 5.8f, 0.04f);
+                IslandPlacementUtility.EnsureExactSolidColliders(northBridge, false, true);
             }
         }
 
-        // Dramatic Cliffs, Mountains & Ancient Boulders
-        Vector2[] rockOffsets = new Vector2[]
+        Physics.SyncTransforms();
+
+        // 6. Outer Scenic Mountains Strictly Outside Temple Ruins & Corridors
+        int mountainLimit = overviewOnly ? 4 : 6;
+        Vector3 hubCenter = beachEntryPos + inlandDir * 55f;
+        for (int i = 0; i < mountainLimit; i++)
         {
-            new Vector2(-28f, 24f), new Vector2(28f, 26f), new Vector2(-36f, 46f), new Vector2(34f, 48f),
-            new Vector2(-26f, 82f), new Vector2(28f, 84f), new Vector2(0f, 98f), new Vector2(-42f, 64f),
-            new Vector2(40f, 66f), new Vector2(20f, 54f)
-        };
-        int rockLimit = overviewOnly ? 6 : rockOffsets.Length;
+            float angle = (-55f + i * (290f / mountainLimit)) * Mathf.Deg2Rad;
+            float radius = 108f + (i % 2) * 28f;
+            Vector3 mt = hubCenter + rightDir * (Mathf.Cos(angle) * radius) + inlandDir * (Mathf.Sin(angle) * radius);
+            if (IslandPlacementUtility.ReserveFlatSpot(terrain, mt.x, mt.z, 18f, 26.0f, 35f, 0.8f, placed, out Vector3 mp))
+            {
+                GameObject mtn = InstantiateAssetAtWorld(MountainPaths[i % MountainPaths.Length], env.transform, "AncientMountain_" + (i + 1), mp, i * 59f);
+                IslandPlacementUtility.GroundObjectExactToTerrain(mtn, terrain, 1.2f);
+                IslandPlacementUtility.EnsureExactSolidColliders(mtn, false, false);
+            }
+        }
+
+        Physics.SyncTransforms();
+
+        // 7. Dramatic Ancient Boulders (strictly outside houses & mountains)
+        int rockLimit = overviewOnly ? 18 : 34;
+        Vector3 origin = terrain.transform.position;
+        Vector3 tSize = terrain.terrainData.size;
         for (int i = 0; i < rockLimit; i++)
         {
-            Vector3 p = FindWalkablePoint(terrain, dockWorld.x + rockOffsets[i].x, dockWorld.z + rockOffsets[i].y, 14f);
-            GameObject rock = InstantiateAssetAtWorld(RockPaths[i % RockPaths.Length], env.transform, "AncientCliffRock_" + (i + 1), p, i * 57f);
-            if (!overviewOnly) EnsureSolidColliders(rock, true);
+            float angle = i * 31f * Mathf.Deg2Rad;
+            float radius = 34f + (i % 5) * 16f;
+            Vector3 rt = (i < 22)
+                ? beachEntryPos + rightDir * (Mathf.Cos(angle) * radius) + inlandDir * (46f + Mathf.Sin(angle) * radius)
+                : new Vector3(origin.x + (0.14f + ((i * 19) % 10) * 0.078f) * tSize.x, 0f, origin.z + (0.18f + ((i * 23) % 10) * 0.072f) * tSize.z);
+
+            if (IslandPlacementUtility.ReserveFlatSpot(terrain, rt.x, rt.z, 16f, 4.4f, 26f, 0.65f, placed, out Vector3 p)
+                && IslandPlacementUtility.IsSpotClearOfObstacles(p, 2.0f))
+            {
+                GameObject rock = InstantiateAssetAtWorld(RockPaths[i % RockPaths.Length], env.transform, "AncientCliffRock_" + (i + 1), p, i * 57f);
+                IslandPlacementUtility.GroundObjectExactToTerrain(rock, terrain, 0.25f);
+                IslandPlacementUtility.EnsureExactSolidColliders(rock, false, false);
+            }
+        }
+
+        Physics.SyncTransforms();
+
+        // 8. Ancient Jungle Trees (strictly clear of buildings & mountains!)
+        int treeLimit = overviewOnly ? 45 : 80;
+        for (int i = 0; i < treeLimit; i++)
+        {
+            float tx;
+            float tz;
+            if (i < 42)
+            {
+                float angle = i * 24f * Mathf.Deg2Rad;
+                float radius = 28f + (i % 6) * 14f;
+                Vector3 ring = beachEntryPos + rightDir * (Mathf.Cos(angle) * radius) + inlandDir * (48f + Mathf.Sin(angle) * radius);
+                tx = ring.x;
+                tz = ring.z;
+            }
+            else
+            {
+                int idx = i - 42;
+                float nx = 0.14f + ((idx * 17) % 10) * 0.076f;
+                float nz = 0.16f + ((idx * 13) % 10) * 0.074f;
+                tx = origin.x + nx * tSize.x;
+                tz = origin.z + nz * tSize.z;
+            }
+
+            if (IslandPlacementUtility.ReserveFlatSpot(terrain, tx, tz, 14f, 3.4f, 24f, 0.85f, placed, out Vector3 p)
+                && IslandPlacementUtility.IsSpotClearOfObstacles(p, 1.6f))
+            {
+                GameObject tree = InstantiateAssetAtWorld(TreePaths[i % TreePaths.Length], env.transform, "AncientTree_" + (i + 1), p, i * 41f);
+                IslandPlacementUtility.GroundObjectExactToTerrain(tree, terrain, 0.18f, true);
+                IslandPlacementUtility.EnsureExactSolidColliders(tree, true, false);
+                if (tree != null && tree.GetComponent<WindSway>() == null)
+                {
+                    WindSway ws = tree.AddComponent<WindSway>();
+                    ws.swayAngle = 2.2f;
+                }
+            }
         }
 
         if (overviewOnly)
             return chamberPos;
 
-        // Scattered Ancient Temple Pillars & Relics
+        Physics.SyncTransforms();
+
+        // 9. Paired Temple Pillar Colonnade (10 flanking Pilgrim Avenue) + 4 Overlook Pillars
         Vector2[] pillarOffsets = new Vector2[]
         {
-            new Vector2(-6f, 18f), new Vector2(6f, 18f),
-            new Vector2(14f, 34f), new Vector2(21f, 38f),
-            new Vector2(-10f, 52f), new Vector2(12f, 52f),
-            new Vector2(-29f, 66f), new Vector2(22f, 62f)
+            new Vector2(-4.8f, 16f), new Vector2(4.8f, 16f),
+            new Vector2(-4.8f, 30f), new Vector2(4.8f, 30f),
+            new Vector2(-4.8f, 42f), new Vector2(4.8f, 42f),
+            new Vector2(-4.8f, 54f), new Vector2(4.8f, 54f),
+            new Vector2(-4.8f, 70f), new Vector2(4.8f, 70f),
+            new Vector2(-24f, 48f), new Vector2(22f, 62f),
+            new Vector2(-18f, 78f), new Vector2(18f, 78f)
         };
         for (int i = 0; i < pillarOffsets.Length; i++)
         {
-            Vector3 pp = FindWalkablePoint(terrain, dockWorld.x + pillarOffsets[i].x, dockWorld.z + pillarOffsets[i].y, 10f);
-            InstantiatePrefabAtWorld(pillarPrefab, env.transform, "TemplePillar_" + (i + 1), pp, i * 25f);
+            Vector3 pt = beachEntryPos + rightDir * pillarOffsets[i].x + inlandDir * pillarOffsets[i].y;
+            Vector3 pp = IslandPlacementUtility.FindFlatWalkablePoint(terrain, pt.x, pt.z, 8f, 22f, 0.8f);
+            if (!IslandPlacementUtility.IsSpotClearOfObstacles(pp, 1.2f))
+                pp = IslandPlacementUtility.FindUnobstructedSpot(terrain, pp.x, pp.z, 8f, 1.2f);
+            GameObject pil = InstantiatePrefabAtWorld(pillarPrefab, env.transform, "TemplePillar_" + (i + 1), pp, dockYaw);
+            IslandPlacementUtility.GroundBuildingWithFoundation(pil, terrain, 0.9f, 0.9f, 0.04f);
         }
 
         // Inscribed ancient ruin monoliths along overlook spots
-        Vector3 tabletWest = FindWalkablePoint(terrain, dockWorld.x - 21f, dockWorld.z + 44f, 10f);
-        GameObject tw = InstantiateAssetAtWorld(OldTextPrefabPath, env.transform, "AncientMonolith_West", tabletWest, 45f);
-        EnsureSolidColliders(tw, false);
+        Vector3 twt = beachEntryPos - rightDir * 21f + inlandDir * 44f;
+        Vector3 tabletWest = IslandPlacementUtility.FindUnobstructedSpot(terrain, twt.x, twt.z, 10f, 1.5f);
+        GameObject tw = InstantiateAssetAtWorld(OldTextPrefabPath, env.transform, "AncientMonolith_West", tabletWest, dockYaw + 45f);
+        IslandPlacementUtility.GroundObjectExactToTerrain(tw, terrain, 0.14f);
+        IslandPlacementUtility.EnsureExactSolidColliders(tw, false, false);
 
-        Vector3 tabletEast = FindWalkablePoint(terrain, dockWorld.x + 24f, dockWorld.z + 58f, 10f);
-        GameObject te = InstantiateAssetAtWorld(OldTextPrefabPath, env.transform, "AncientMonolith_East", tabletEast, -40f);
-        EnsureSolidColliders(te, false);
+        Vector3 tet = beachEntryPos + rightDir * 24f + inlandDir * 58f;
+        Vector3 tabletEast = IslandPlacementUtility.FindUnobstructedSpot(terrain, tet.x, tet.z, 10f, 1.5f);
+        GameObject te = InstantiateAssetAtWorld(OldTextPrefabPath, env.transform, "AncientMonolith_East", tabletEast, dockYaw - 40f);
+        IslandPlacementUtility.GroundObjectExactToTerrain(te, terrain, 0.14f);
+        IslandPlacementUtility.EnsureExactSolidColliders(te, false, false);
 
-        // Winding Mossy Flagstone Path from Dock to Sanctuary + Dense Bushes/Grass
-        for (int i = 0; i < 11; i++)
+        // Flagstone Pilgrim Avenue + Dense Bushes/Grass on leveled terrain
+        for (int i = 0; i < aveNodes.Length; i++)
         {
-            float dz = 14f + i * 6.2f;
-            float dx = Mathf.Sin(i * 0.5f) * 2.2f;
-            Vector3 sp = FindWalkablePoint(terrain, dockWorld.x + dx, dockWorld.z + dz, 8f);
-            CreatePart(env.transform, "AncientPathStone_" + (i + 1), PrimitiveType.Cylinder, sp + Vector3.up * 0.03f, new Vector3(0f, i * 33f, 0f), new Vector3(1.9f, 0.06f, 1.9f), stoneMat);
+            Vector3 sp = aveNodes[i];
+            if (!IslandPlacementUtility.IsSpotClearOfObstacles(sp, 1.0f))
+                sp = IslandPlacementUtility.FindUnobstructedSpot(terrain, sp.x, sp.z, 6f, 1.0f);
+            sp.y = terrain.SampleHeight(sp) + terrain.transform.position.y;
+            CreatePart(env.transform, "AncientPathStone_" + (i + 1), PrimitiveType.Cylinder, sp + Vector3.up * 0.01f, new Vector3(0f, i * 33f, 0f), new Vector3(1.8f, 0.04f, 1.8f), stoneMat);
 
             if (i % 2 == 1)
             {
-                Vector3 bushPos = FindWalkablePoint(terrain, sp.x + 3.2f, sp.z, 6f);
+                Vector3 bushPos = IslandPlacementUtility.FindUnobstructedSpot(terrain, sp.x + rightDir.x * 3.4f, sp.z + rightDir.z * 3.4f, 6f, 0.8f);
                 GameObject bush = InstantiateAssetAtWorld(BushPath, env.transform, "JungleBush_" + (i + 1), bushPos, i * 45f);
+                IslandPlacementUtility.GroundObjectExactToTerrain(bush, terrain, 0.08f, true);
                 if (bush != null && bush.GetComponent<WindSway>() == null) bush.AddComponent<WindSway>();
             }
             else
             {
-                Vector3 grassPos = FindWalkablePoint(terrain, sp.x - 3.0f, sp.z, 6f);
+                Vector3 grassPos = IslandPlacementUtility.FindUnobstructedSpot(terrain, sp.x - rightDir.x * 3.2f, sp.z - rightDir.z * 3.2f, 6f, 0.8f);
                 GameObject grass = InstantiateAssetAtWorld(GrassPath, env.transform, "JungleGrass_" + (i + 1), grassPos, i * 35f);
+                IslandPlacementUtility.GroundObjectExactToTerrain(grass, terrain, 0.06f, true);
                 if (grass != null && grass.GetComponent<WindSway>() == null) grass.AddComponent<WindSway>();
             }
         }
 
-        // Flickering fire braziers flanking the lower & upper paths (zero shadow overhead)
-        Vector3 lowerFirePos = FindWalkablePoint(terrain, dockWorld.x + 8f, dockWorld.z + 28f, 10f);
-        InstantiateFireFxNoShadows(env.transform, "PathFireFX_Lower", lowerFirePos);
-        Vector3 upperFirePos = FindWalkablePoint(terrain, dockWorld.x - 8f, dockWorld.z + 62f, 10f);
-        InstantiateFireFxNoShadows(env.transform, "PathFireFX_Upper", upperFirePos);
+        // Safe flickering stone fire braziers flanking the Pilgrim Avenue (zero bloom blowout)
+        Vector3 lfTarget = beachEntryPos + rightDir * 6.5f + inlandDir * 24f;
+        Vector3 lowerFirePos = IslandPlacementUtility.FindUnobstructedSpot(terrain, lfTarget.x, lfTarget.z, 10f, 1.1f);
+        InstantiateFireFxNoShadows(env.transform, "PathFireFX_Lower", lowerFirePos, terrain);
+        Vector3 ufTarget = beachEntryPos - rightDir * 6.5f + inlandDir * 58f;
+        Vector3 upperFirePos = IslandPlacementUtility.FindUnobstructedSpot(terrain, ufTarget.x, ufTarget.z, 10f, 1.1f);
+        InstantiateFireFxNoShadows(env.transform, "PathFireFX_Upper", upperFirePos, terrain);
 
         return chamberPos;
     }
 
-    private static void InstantiateFireFxNoShadows(Transform parent, string name, Vector3 pos)
+    private static Vector3 FindSpacedChestSpot(
+        Terrain terrain,
+        float preferredX,
+        float preferredZ,
+        float searchRadius,
+        float footprintRadius,
+        List<IslandPlacementUtility.PlacedFootprint> placed)
     {
-        GameObject fireAsset = AssetDatabase.LoadAssetAtPath<GameObject>(FireFxPath);
-        if (fireAsset != null)
+        Vector3 best = IslandPlacementUtility.FindUnobstructedSpot(terrain, preferredX, preferredZ, searchRadius, 1.8f);
+        if (IslandPlacementUtility.IsClearOfFootprints(best, footprintRadius, placed))
         {
-            GameObject fireInst = (GameObject)PrefabUtility.InstantiatePrefab(fireAsset, parent);
-            fireInst.name = name;
-            fireInst.transform.position = pos;
-            Light[] fls = fireInst.GetComponentsInChildren<Light>(true);
-            for (int i = 0; i < fls.Length; i++)
+            placed.Add(new IslandPlacementUtility.PlacedFootprint(best, footprintRadius));
+            return best;
+        }
+
+        for (float r = 4f; r <= searchRadius + 16f; r += 4f)
+        {
+            for (int deg = 0; deg < 360; deg += 45)
             {
-                fls[i].shadows = LightShadows.None;
-                fls[i].range = 14f;
-                if (fls[i].GetComponent<FlickeringLight>() == null)
-                    fls[i].gameObject.AddComponent<FlickeringLight>();
+                float rad = deg * Mathf.Deg2Rad;
+                Vector3 cand = IslandPlacementUtility.FindUnobstructedSpot(terrain, preferredX + Mathf.Cos(rad) * r, preferredZ + Mathf.Sin(rad) * r, 8f, 1.8f);
+                if (IslandPlacementUtility.IsClearOfFootprints(cand, footprintRadius, placed))
+                {
+                    placed.Add(new IslandPlacementUtility.PlacedFootprint(cand, footprintRadius));
+                    return cand;
+                }
             }
         }
-        else
-        {
-            AddFlickeringPointLight(parent, name, pos + Vector3.up * 1.1f, new Color(1f, 0.65f, 0.25f), 2.3f, 14f, false);
-        }
+
+        placed.Add(new IslandPlacementUtility.PlacedFootprint(best, footprintRadius));
+        return best;
     }
 
-    private static void BuildDockRepairBench(Transform parent, Vector3 worldPos, Material woodMat, Material goldMat, Material sparkleMat)
+    private static void InstantiateFireFxNoShadows(Transform parent, string name, Vector3 pos, Terrain terrain)
+    {
+        GameObject brazier = new GameObject(name);
+        brazier.transform.SetParent(parent, false);
+        brazier.transform.position = pos;
+
+        BoxCollider col = brazier.AddComponent<BoxCollider>();
+        col.center = new Vector3(0f, 0.65f, 0f);
+        col.size = new Vector3(1.1f, 1.3f, 1.1f);
+
+        Material stoneMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/FinalMossyStone.mat");
+        Material glowMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/BoatLanternGlow.mat");
+        CreatePart(brazier.transform, "PedestalSkirt", PrimitiveType.Cylinder, new Vector3(0f, -0.55f, 0f), Vector3.zero, new Vector3(1.05f, 0.65f, 1.05f), stoneMat);
+        CreatePart(brazier.transform, "Pedestal", PrimitiveType.Cylinder, new Vector3(0f, 0.45f, 0f), Vector3.zero, new Vector3(0.95f, 0.45f, 0.95f), stoneMat);
+        CreatePart(brazier.transform, "EmberCore", PrimitiveType.Sphere, new Vector3(0f, 0.98f, 0f), Vector3.zero, new Vector3(0.45f, 0.35f, 0.45f), glowMat);
+
+        GameObject campAsset = AssetDatabase.LoadAssetAtPath<GameObject>(CampfirePath);
+        if (campAsset != null)
+        {
+            GameObject camp = (GameObject)PrefabUtility.InstantiatePrefab(campAsset, brazier.transform);
+            camp.transform.localPosition = new Vector3(0f, 0.9f, 0f);
+            camp.transform.localScale = Vector3.one * 0.8f;
+        }
+        GameObject emberAsset = AssetDatabase.LoadAssetAtPath<GameObject>(EmbersPath);
+        if (emberAsset != null)
+        {
+            GameObject em = (GameObject)PrefabUtility.InstantiatePrefab(emberAsset, brazier.transform);
+            em.transform.localPosition = new Vector3(0f, 1.12f, 0f);
+        }
+
+        AddFlickeringPointLight(brazier.transform, name + "_Light", new Vector3(0f, 1.35f, 0f), new Color(1f, 0.65f, 0.25f), 1.8f, 14f, true);
+        if (terrain != null)
+            IslandPlacementUtility.GroundBuildingWithFoundation(brazier, terrain, 0.7f, 0.7f, 0.06f);
+    }
+
+    private static void BuildDockRepairBench(Transform parent, Vector3 worldPos, Quaternion dockRot, Material woodMat, Material goldMat, Material sparkleMat)
     {
         GameObject bench = new GameObject("FinalDockRepairWorkbench");
         bench.transform.SetParent(parent, false);
         bench.transform.position = worldPos;
-        bench.transform.rotation = Quaternion.Euler(0f, -90f, 0f);
+        bench.transform.rotation = dockRot * Quaternion.Euler(0f, -90f, 0f);
 
         BoxCollider col = bench.AddComponent<BoxCollider>();
         col.center = new Vector3(0f, 0.55f, 0f);
@@ -679,6 +1037,7 @@ public static class Phase11FinalIslandSetup
         fxGo.transform.localPosition = new Vector3(0f, 1.15f, 0f);
         fxGo.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
         ParticleSystem ps = fxGo.AddComponent<ParticleSystem>();
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         ParticleSystem.MainModule main = ps.main;
         main.playOnAwake = false;
         main.loop = false;
@@ -744,7 +1103,9 @@ public static class Phase11FinalIslandSetup
         if (mat != null)
             return mat;
 
-        Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+        if (shader == null)
+            shader = Shader.Find("Standard");
         mat = new Material(shader);
         if (foamTex != null && mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", foamTex);
         if (foamTex != null && mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", foamTex);
@@ -758,86 +1119,29 @@ public static class Phase11FinalIslandSetup
         return mat;
     }
 
-    private static Vector3 FindSouthernShorelineWorld(Terrain terrain)
+    private static TerrainData GetOrCreateRightSizedFinalTerrain()
     {
-        TerrainData data = terrain.terrainData;
-        Vector3 origin = terrain.transform.position;
-
-        float bestScore = float.MaxValue;
-        Vector3 bestPos = new Vector3(origin.x + data.size.x * 0.5f, 0.6f, origin.z + data.size.z * 0.25f);
-
-        for (float nx = 0.25f; nx <= 0.75f; nx += 0.05f)
+        TerrainData existing = AssetDatabase.LoadAssetAtPath<TerrainData>(FinalTerrainPath);
+        if (existing == null)
         {
-            for (float nz = 0.04f; nz <= 0.45f; nz += 0.02f)
-            {
-                float wx = origin.x + nx * data.size.x;
-                float wz = origin.z + nz * data.size.z;
-                float wy = terrain.SampleHeight(new Vector3(wx, 0f, wz)) + origin.y;
-
-                if (wy >= 0.45f && wy <= 1.8f)
-                {
-                    float seaY = terrain.SampleHeight(new Vector3(wx, 0f, wz - 10f)) + origin.y;
-                    float slope = data.GetSteepness(nx, nz);
-                    if (seaY < 0.2f && slope < 28f)
-                    {
-                        float centerDist = Mathf.Abs(nx - 0.5f);
-                        float score = centerDist * 20f + slope * 0.1f;
-                        if (score < bestScore)
-                        {
-                            bestScore = score;
-                            bestPos = new Vector3(wx, 0.6f, wz);
-                        }
-                    }
-                    break;
-                }
-            }
+            AssetDatabase.CopyAsset(SourceFinalTerrainPath, FinalTerrainPath);
+            AssetDatabase.Refresh();
+            existing = AssetDatabase.LoadAssetAtPath<TerrainData>(FinalTerrainPath);
         }
 
-        return bestPos;
-    }
-
-    private static Vector3 FindWalkablePoint(Terrain terrain, float preferredX, float preferredZ, float searchRadius)
-    {
-        float baseY = terrain.transform.position.y;
-        TerrainData data = terrain.terrainData;
-
-        if (IsWalkable(terrain, data, baseY, preferredX, preferredZ, out float bestY))
-            return new Vector3(preferredX, bestY, preferredZ);
-
-        for (float r = 1.5f; r <= searchRadius; r += 1.5f)
+        if (existing != null)
         {
-            for (int deg = 0; deg < 360; deg += 30)
-            {
-                float rad = deg * Mathf.Deg2Rad;
-                float tx = preferredX + Mathf.Cos(rad) * r;
-                float tz = preferredZ + Mathf.Sin(rad) * r;
-                if (IsWalkable(terrain, data, baseY, tx, tz, out float sampleY))
-                    return new Vector3(tx, sampleY, tz);
-            }
+            existing.size = new Vector3(480f, 76f, 480f);
+            EditorUtility.SetDirty(existing);
+            return existing;
         }
 
-        float fallbackY = terrain.SampleHeight(new Vector3(preferredX, 0f, preferredZ)) + baseY;
-        return new Vector3(preferredX, Mathf.Max(0.6f, fallbackY), preferredZ);
-    }
-
-    private static bool IsWalkable(Terrain terrain, TerrainData data, float baseY, float worldX, float worldZ, out float worldY)
-    {
-        Vector3 origin = terrain.transform.position;
-        float nx = (worldX - origin.x) / data.size.x;
-        float nz = (worldZ - origin.z) / data.size.z;
-        worldY = terrain.SampleHeight(new Vector3(worldX, 0f, worldZ)) + baseY;
-
-        if (nx < 0.05f || nx > 0.95f || nz < 0.05f || nz > 0.95f)
-            return false;
-        if (worldY < 0.6f)
-            return false;
-
-        return data.GetSteepness(nx, nz) < 30f;
+        return AssetDatabase.LoadAssetAtPath<TerrainData>(SourceFinalTerrainPath);
     }
 
     private static BoatDocking FindDiscoveryDock(Scene gameScene)
     {
-        BoatDocking[] docks = Object.FindObjectsByType<BoatDocking>(FindObjectsSortMode.None);
+        BoatDocking[] docks = Object.FindObjectsByType<BoatDocking>();
         for (int i = 0; i < docks.Length; i++)
         {
             if (docks[i].gameObject.scene == gameScene && docks[i].islandIndex == 0)
@@ -892,20 +1196,21 @@ public static class Phase11FinalIslandSetup
         return go;
     }
 
-    private static void EnsureTreeTrunkCollider(GameObject tree)
+    private static bool HasNonTriggerCollider(GameObject root)
     {
-        if (tree == null || tree.GetComponentsInChildren<Collider>(true).Length > 0)
-            return;
-
-        CapsuleCollider col = tree.AddComponent<CapsuleCollider>();
-        col.center = new Vector3(0f, 2.5f, 0f);
-        col.radius = 0.45f;
-        col.height = 5.5f;
+        if (root == null) return false;
+        Collider[] cols = root.GetComponentsInChildren<Collider>(true);
+        for (int i = 0; i < cols.Length; i++)
+        {
+            if (cols[i] != null && !cols[i].isTrigger)
+                return true;
+        }
+        return false;
     }
 
     private static void EnsureSolidColliders(GameObject root, bool useMeshColliderPerRenderer)
     {
-        if (root == null || root.GetComponentsInChildren<Collider>(true).Length > 0)
+        if (HasNonTriggerCollider(root))
             return;
 
         if (useMeshColliderPerRenderer)
@@ -913,10 +1218,10 @@ public static class Phase11FinalIslandSetup
             MeshFilter[] filters = root.GetComponentsInChildren<MeshFilter>(true);
             for (int i = 0; i < filters.Length; i++)
             {
-                if (filters[i].sharedMesh != null && filters[i].GetComponent<Collider>() == null)
+                if (filters[i].sharedMesh != null && filters[i].sharedMesh.vertexCount <= 8000 && filters[i].GetComponent<Collider>() == null)
                     filters[i].gameObject.AddComponent<MeshCollider>();
             }
-            if (root.GetComponentsInChildren<Collider>(true).Length > 0)
+            if (HasNonTriggerCollider(root))
                 return;
         }
 
@@ -928,9 +1233,14 @@ public static class Phase11FinalIslandSetup
         for (int i = 1; i < renderers.Length; i++)
             bounds.Encapsulate(renderers[i].bounds);
 
+        Vector3 ls = root.transform.lossyScale;
+        float sx = Mathf.Max(0.01f, Mathf.Abs(ls.x));
+        float sy = Mathf.Max(0.01f, Mathf.Abs(ls.y));
+        float sz = Mathf.Max(0.01f, Mathf.Abs(ls.z));
+
         BoxCollider box = root.AddComponent<BoxCollider>();
         box.center = root.transform.InverseTransformPoint(bounds.center);
-        box.size = bounds.size;
+        box.size = new Vector3(bounds.size.x / sx, bounds.size.y / sy, bounds.size.z / sz);
     }
 
     private static void AddFlickeringPointLight(Transform parent, string name, Vector3 pos, Color color, float intensity, float range, bool localPos)
@@ -953,7 +1263,7 @@ public static class Phase11FinalIslandSetup
 
     private static void DisableDecorativePointShadows(Scene scene)
     {
-        Light[] lights = Object.FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        Light[] lights = Object.FindObjectsByType<Light>(FindObjectsInactive.Include);
         for (int i = 0; i < lights.Length; i++)
         {
             if (lights[i].gameObject.scene == scene && lights[i].type != LightType.Directional)
@@ -1000,7 +1310,9 @@ public static class Phase11FinalIslandSetup
         if (mat != null)
             return mat;
 
-        Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+        if (shader == null)
+            shader = Shader.Find("Standard");
         mat = new Material(shader);
         if (mainTex != null && mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", mainTex);
         if (mainTex != null && mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", mainTex);
@@ -1033,7 +1345,9 @@ public static class Phase11FinalIslandSetup
         if (mat != null)
             return mat;
 
-        Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit") ?? Shader.Find("Particles/Standard Unlit");
+        Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+        if (shader == null)
+            shader = Shader.Find("Particles/Standard Unlit");
         mat = new Material(shader);
         if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
         if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);

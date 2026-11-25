@@ -39,7 +39,6 @@ public class InventoryHotbarUI : MonoBehaviour
     private Button invUsePlankBtn;
     private Button invUsePotionBtn;
 
-    private int lastCoins = -1;
     private int lastPlanks = -1;
     private int lastPotions = -1;
     private float plankPulseTimer = 0f;
@@ -56,7 +55,7 @@ public class InventoryHotbarUI : MonoBehaviour
         if (Instance != null)
             return Instance;
 
-        InventoryHotbarUI existing = FindFirstObjectByType<InventoryHotbarUI>();
+        InventoryHotbarUI existing = FindAnyObjectByType<InventoryHotbarUI>();
         if (existing != null)
         {
             Instance = existing;
@@ -102,8 +101,8 @@ public class InventoryHotbarUI : MonoBehaviour
 
     private void RefreshSceneQuizReferences()
     {
-        cachedOceanQuiz = FindFirstObjectByType<QuizManager>();
-        cachedChestQuiz = FindFirstObjectByType<ChestQuizManager>();
+        cachedOceanQuiz = FindAnyObjectByType<QuizManager>();
+        cachedChestQuiz = FindAnyObjectByType<ChestQuizManager>();
         sceneQuizRefsCached = true;
     }
 
@@ -111,6 +110,12 @@ public class InventoryHotbarUI : MonoBehaviour
     {
         if (rootCanvas == null || !rootCanvas.enabled)
             return;
+
+        bool hideForEndScreen =
+            (GameOverUI.Instance != null && GameOverUI.Instance.IsShowing) ||
+            (VictoryScreenUI.Instance != null && VictoryScreenUI.Instance.IsShowing);
+        if (hotbarRoot != null && hotbarRoot.activeSelf == hideForEndScreen)
+            hotbarRoot.SetActive(!hideForEndScreen);
 
         AnimatePulses();
 
@@ -174,6 +179,9 @@ public class InventoryHotbarUI : MonoBehaviour
         if (VictoryScreenUI.Instance != null && VictoryScreenUI.Instance.IsShowing)
             return true;
 
+        if (GameOverUI.Instance != null && GameOverUI.Instance.IsShowing)
+            return true;
+
         if (PauseAndSettingsUI.Instance != null && PauseAndSettingsUI.Instance.IsOpen)
             return true;
 
@@ -184,6 +192,9 @@ public class InventoryHotbarUI : MonoBehaviour
             return true;
 
         if (cachedChestQuiz != null && cachedChestQuiz.IsQuizOpen)
+            return true;
+
+        if (IslandGuideNPC.AnyDialogueOpen)
             return true;
 
         return false;
@@ -204,15 +215,15 @@ public class InventoryHotbarUI : MonoBehaviour
             RefreshUI();
         }
 
-        IslandPlayerController islandPlayer = FindFirstObjectByType<IslandPlayerController>();
+        IslandPlayerController islandPlayer = FindAnyObjectByType<IslandPlayerController>();
         if (islandPlayer != null)
             islandPlayer.SetControlsEnabled(!open);
 
-        BoatMovement boatMove = FindFirstObjectByType<BoatMovement>();
+        BoatMovement boatMove = FindAnyObjectByType<BoatMovement>();
         if (boatMove != null)
             boatMove.canMove = !open;
 
-        FirstPersonMouseLook mouseLook = FindFirstObjectByType<FirstPersonMouseLook>();
+        FirstPersonMouseLook mouseLook = FindAnyObjectByType<FirstPersonMouseLook>();
         if (mouseLook != null)
             mouseLook.enabled = !open;
 
@@ -229,13 +240,14 @@ public class InventoryHotbarUI : MonoBehaviour
             return;
 
         GameStateManager state = GameStateManager.EnsureInstance();
-        bool ok = state.TryUsePlank(out int restored, out string feedback);
+        bool ok = state.TryUsePlank(out _, out string feedback);
         plankPulseTimer = 0.28f;
 
         if (ok)
         {
             GameAudioManager.EnsureInstance().PlayRepair();
-            BoatSink sink = FindFirstObjectByType<BoatSink>();
+            ScreenFeedbackFX.EnsureInstance().TriggerRepairFeedback();
+            BoatSink sink = FindAnyObjectByType<BoatSink>();
             if (sink != null)
                 sink.SyncFromGameState(true);
         }
@@ -250,13 +262,14 @@ public class InventoryHotbarUI : MonoBehaviour
             return;
 
         GameStateManager state = GameStateManager.EnsureInstance();
-        bool ok = state.TryUsePotion(out int restored, out string feedback);
+        bool ok = state.TryUsePotion(out _, out string feedback);
         potionPulseTimer = 0.28f;
 
         if (ok)
         {
             GameAudioManager.EnsureInstance().PlayRepair();
-            BoatSink sink = FindFirstObjectByType<BoatSink>();
+            ScreenFeedbackFX.EnsureInstance().TriggerRepairFeedback();
+            BoatSink sink = FindAnyObjectByType<BoatSink>();
             if (sink != null)
                 sink.SyncFromGameState(true);
         }
@@ -275,7 +288,6 @@ public class InventoryHotbarUI : MonoBehaviour
         if (lastPotions >= 0 && state.potions != lastPotions)
             potionPulseTimer = 0.28f;
 
-        lastCoins = state.coins;
         lastPlanks = state.planks;
         lastPotions = state.potions;
 

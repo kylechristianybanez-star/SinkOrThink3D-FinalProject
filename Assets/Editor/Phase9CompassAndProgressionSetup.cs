@@ -28,13 +28,13 @@ public static class Phase9CompassAndProgressionSetup
         for (int s = 0; s < scenesToCheck.Length; s++)
         {
             Scene scene = EditorSceneManager.OpenScene(scenesToCheck[s], OpenSceneMode.Single);
-            EventSystem[] systems = Object.FindObjectsByType<EventSystem>(FindObjectsSortMode.None);
+            EventSystem[] systems = Object.FindObjectsByType<EventSystem>();
             if (systems.Length > 1)
                 duplicateEventSystems += (systems.Length - 1);
 
             if (scenesToCheck[s].Contains("IslandScene"))
             {
-                TreasureChest[] chests = Object.FindObjectsByType<TreasureChest>(FindObjectsSortMode.None);
+                TreasureChest[] chests = Object.FindObjectsByType<TreasureChest>();
                 chestCountInIsland = chests.Length;
             }
         }

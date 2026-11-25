@@ -24,9 +24,13 @@ public class ChestQuizManager : MonoBehaviour
 
     private TreasureChest activeChest;
     private IslandPlayerController activePlayer;
+    private QuizQuestion activeQuestion;
     private int displayedCorrectIndex = 0;
     private bool awaitingResponse = false;
     private bool isOpen = false;
+    private bool hintUsedThisQuestion = false;
+    private Button hintButton;
+    private TMP_Text hintButtonText;
     private readonly List<int> recentQuestionIndices = new List<int>();
     private float panelAnimTimer = 0f;
 
@@ -38,7 +42,7 @@ public class ChestQuizManager : MonoBehaviour
 
     public static ChestQuizManager EnsureInScene(int targetIslandIndex)
     {
-        ChestQuizManager existing = FindFirstObjectByType<ChestQuizManager>();
+        ChestQuizManager existing = FindAnyObjectByType<ChestQuizManager>();
         if (existing != null)
         {
             existing.islandIndex = targetIslandIndex;
@@ -88,7 +92,7 @@ public class ChestQuizManager : MonoBehaviour
 
     private void AssignIslandChestRewards()
     {
-        TreasureChest[] allChests = FindObjectsByType<TreasureChest>(FindObjectsSortMode.None);
+        TreasureChest[] allChests = FindObjectsByType<TreasureChest>();
         List<string> regularIds = new List<string>();
 
         for (int i = 0; i < allChests.Length; i++)
@@ -142,6 +146,8 @@ public class ChestQuizManager : MonoBehaviour
 
         int chosenIndex = PickFreshQuestionIndex(pool.Length);
         QuizQuestion q = pool[chosenIndex];
+        activeQuestion = q;
+        hintUsedThisQuestion = false;
 
         int[] shuffle = new int[] { 0, 1, 2, 3 };
         for (int i = 3; i > 0; i--)
@@ -177,6 +183,8 @@ public class ChestQuizManager : MonoBehaviour
             choiceImages[i].color = normalBtnColor;
             choiceButtons[i].interactable = true;
         }
+
+        RefreshHintButtonState();
 
         if (activePlayer != null)
             activePlayer.SetControlsEnabled(false);
@@ -215,24 +223,81 @@ public class ChestQuizManager : MonoBehaviour
         awaitingResponse = false;
         for (int i = 0; i < 4; i++)
             choiceButtons[i].interactable = false;
+        if (hintButton != null)
+            hintButton.interactable = false;
 
         StartCoroutine(ResolveAnswerRoutine(index == displayedCorrectIndex, index));
     }
 
+    private void RefreshHintButtonState()
+    {
+        if (hintButton == null || hintButtonText == null)
+            return;
+
+        GameStateManager state = GameStateManager.EnsureInstance();
+        bool canAfford = !hintUsedThisQuestion && state.coins >= GameStateManager.HintLifelineCost;
+        hintButton.interactable = canAfford;
+        hintButtonText.text = hintUsedThisQuestion
+            ? "Hint Used"
+            : "50/50 Hint (" + GameStateManager.HintLifelineCost + "c)";
+    }
+
+    private void OnHintButtonClicked()
+    {
+        if (!awaitingResponse || hintUsedThisQuestion)
+            return;
+
+        GameStateManager state = GameStateManager.EnsureInstance();
+        if (!state.TrySpendHintCoins(out string msg))
+        {
+            feedbackText.text = msg;
+            feedbackText.color = new Color(0.68f, 0.12f, 0.12f, 1f);
+            return;
+        }
+
+        hintUsedThisQuestion = true;
+        List<int> wrongIndices = new List<int>();
+        for (int i = 0; i < 4; i++)
+        {
+            if (i != displayedCorrectIndex && choiceButtons[i].interactable)
+                wrongIndices.Add(i);
+        }
+
+        for (int r = 0; r < 2 && wrongIndices.Count > 0; r++)
+        {
+            int pick = Random.Range(0, wrongIndices.Count);
+            int targetIdx = wrongIndices[pick];
+            wrongIndices.RemoveAt(pick);
+            choiceButtons[targetIdx].interactable = false;
+            choiceImages[targetIdx].color = new Color(0.55f, 0.52f, 0.46f, 0.65f);
+            choiceTexts[targetIdx].text = "---";
+        }
+
+        GameAudioManager.EnsureInstance().PlayHintChime();
+        feedbackText.text = "50/50 Hint Used! 2 wrong answers eliminated.";
+        feedbackText.color = new Color(0.14f, 0.38f, 0.58f, 1f);
+        RefreshHintButtonState();
+    }
+
     private IEnumerator ResolveAnswerRoutine(bool isCorrect, int selectedIndex)
     {
+        GameStateManager state = GameStateManager.EnsureInstance();
+        state.RecordQuizResult(isCorrect);
+        string explanationLine = (activeQuestion != null && !string.IsNullOrEmpty(activeQuestion.explanation))
+            ? "\n" + activeQuestion.explanation
+            : "";
+
         if (isCorrect)
         {
             choiceImages[selectedIndex].color = correctBtnColor;
-            feedbackText.text = "Correct! Opening treasure chest...";
+            feedbackText.text = "Correct! Opening chest..." + explanationLine;
             feedbackText.color = new Color(0.1f, 0.52f, 0.15f, 1f);
             GameAudioManager.EnsureInstance().PlayCorrect();
 
-            yield return new WaitForSecondsRealtime(0.85f);
+            yield return new WaitForSecondsRealtime(1.65f);
 
             GameAudioManager.EnsureInstance().PlayTreasureCollect();
 
-            GameStateManager state = GameStateManager.EnsureInstance();
             ChestRewardType revealType = ChestRewardType.Coins;
             string rewardMessage;
 
@@ -257,6 +322,8 @@ public class ChestQuizManager : MonoBehaviour
             bool isFinalCrownVictory = activeChest.isSpecialChest && activeChest.islandIndex == 2;
 
             activeChest.OpenChestAnimated();
+            if (!isFinalCrownVictory)
+                state.SaveProgress();
 
             Vector3 spawnPos = activeChest.rewardRevealPoint != null
                 ? activeChest.rewardRevealPoint.position
@@ -281,13 +348,19 @@ public class ChestQuizManager : MonoBehaviour
             choiceImages[displayedCorrectIndex].color = correctBtnColor;
             activeChest.PlayLockedRattle();
 
-            feedbackText.text = "Wrong answer! Chest stays locked — press E to try a new question.";
+            feedbackText.text = "Wrong! Chest respawned elsewhere!" + explanationLine;
             feedbackText.color = new Color(0.68f, 0.12f, 0.12f, 1f);
             GameAudioManager.EnsureInstance().PlayWrong();
 
-            yield return new WaitForSecondsRealtime(1.45f);
+            TreasureChest wrongChest = activeChest;
+            yield return new WaitForSecondsRealtime(1.85f);
 
             CloseQuizPanel(true);
+            if (wrongChest != null)
+            {
+                wrongChest.RelocateOnWrongAnswer();
+                ScreenFader.EnsureInstance().ShowArrivalBanner("Chest vanished! Search the island to find where it respawned.", 2.8f);
+            }
         }
     }
 
@@ -372,10 +445,20 @@ public class ChestQuizManager : MonoBehaviour
             choiceTexts[i] = btnTxt;
         }
 
-        feedbackText = CreateText(parchment.transform, "Feedback", new Vector2(0f, -165f), new Vector2(670f, 44f), 19f, FontStyles.Bold, new Color(0.28f, 0.18f, 0.08f, 1f));
+        feedbackText = CreateText(parchment.transform, "Feedback", new Vector2(0f, -162f), new Vector2(670f, 62f), 17f, FontStyles.Bold, new Color(0.28f, 0.18f, 0.08f, 1f));
+
+        // 50/50 Hint button (spend 10 Coins)
+        GameObject hintGo = CreateUIObject("HintButton", parchment.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(-115f, -222f), new Vector2(210f, 42f));
+        Image hintImg = hintGo.AddComponent<Image>();
+        hintImg.color = new Color(0.74f, 0.54f, 0.14f, 1f);
+        hintButton = hintGo.AddComponent<Button>();
+        hintButton.onClick.AddListener(OnHintButtonClicked);
+        hintButtonText = CreateText(hintGo.transform, "Label", Vector2.zero, new Vector2(196f, 36f), 17f, FontStyles.Bold, new Color(1f, 0.96f, 0.86f, 1f));
+        hintButtonText.text = "50/50 Hint (10c)";
+        hintButtonText.raycastTarget = false;
 
         // Close button
-        GameObject closeGo = CreateUIObject("CloseButton", parchment.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -218f), new Vector2(180f, 42f));
+        GameObject closeGo = CreateUIObject("CloseButton", parchment.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(115f, -222f), new Vector2(180f, 42f));
         Image closeImg = closeGo.AddComponent<Image>();
         closeImg.color = new Color(0.45f, 0.25f, 0.14f, 1f);
         Button closeBtn = closeGo.AddComponent<Button>();

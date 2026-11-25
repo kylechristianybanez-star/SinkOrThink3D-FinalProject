@@ -1,8 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Spawns an animated 3D treasure prop above an opened chest that rises, spins,
-/// and flies smoothly toward the player camera to show what was collected.
+/// Spawns a multi-part animated 3D treasure prop above an opened chest that rises,
+/// spins, and flies smoothly toward the player camera to show what was collected.
 /// </summary>
 public class RewardRevealEffect : MonoBehaviour
 {
@@ -34,13 +34,17 @@ public class RewardRevealEffect : MonoBehaviour
             effect.riseHeight = 1.25f;
             effect.spinSpeed = 160f;
             root.transform.localScale = Vector3.one * 1.45f;
-            AttachCrownSparkles(root.transform);
+            AttachSparkles(root.transform, new Color(1f, 0.88f, 0.25f, 1f), 28);
+        }
+        else if (rewardType == ChestRewardType.GoldenKey || rewardType == ChestRewardType.MagicCompass)
+        {
+            AttachSparkles(root.transform, new Color(1f, 0.92f, 0.45f, 1f), 16);
         }
     }
 
-    private static void AttachCrownSparkles(Transform parent)
+    private static void AttachSparkles(Transform parent, Color sparkleColor, int maxCount)
     {
-        GameObject fxGo = new GameObject("CrownSparkleBurst");
+        GameObject fxGo = new GameObject("RewardSparkleBurst");
         fxGo.transform.SetParent(parent, false);
         ParticleSystem ps = fxGo.AddComponent<ParticleSystem>();
         ParticleSystem.MainModule main = ps.main;
@@ -49,11 +53,11 @@ public class RewardRevealEffect : MonoBehaviour
         main.startLifetime = 0.75f;
         main.startSpeed = 1.4f;
         main.startSize = 0.08f;
-        main.startColor = new Color(1f, 0.88f, 0.25f, 1f);
-        main.maxParticles = 28;
+        main.startColor = sparkleColor;
+        main.maxParticles = maxCount;
 
         ParticleSystem.EmissionModule em = ps.emission;
-        em.rateOverTime = 18f;
+        em.rateOverTime = 16f;
 
         ParticleSystem.ShapeModule shape = ps.shape;
         shape.shapeType = ParticleSystemShapeType.Sphere;
@@ -62,12 +66,12 @@ public class RewardRevealEffect : MonoBehaviour
         ParticleSystemRenderer pr = fxGo.GetComponent<ParticleSystemRenderer>();
         if (pr != null)
         {
-            Shader pShader = Shader.Find("Universal Render Pipeline/Particles/Unlit") ?? Shader.Find("Particles/Standard Unlit");
+            Shader pShader = FindSafeShader("Universal Render Pipeline/Particles/Unlit", "Particles/Standard Unlit");
             if (pShader != null)
             {
                 Material mat = new Material(pShader);
-                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", new Color(1f, 0.88f, 0.3f, 1f));
-                if (mat.HasProperty("_Color")) mat.SetColor("_Color", new Color(1f, 0.88f, 0.3f, 1f));
+                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", sparkleColor);
+                if (mat.HasProperty("_Color")) mat.SetColor("_Color", sparkleColor);
                 pr.sharedMaterial = mat;
             }
         }
@@ -113,54 +117,116 @@ public class RewardRevealEffect : MonoBehaviour
 
     private static void BuildVisualProp(Transform parent, ChestRewardType type)
     {
-        Shader litShader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
-        Material goldMat = CreateMat(litShader, new Color(1f, 0.82f, 0.2f), 0.9f, 0.72f, new Color(0.55f, 0.4f, 0.05f));
-        Material woodMat = CreateMat(litShader, new Color(0.52f, 0.34f, 0.18f), 0f, 0.2f, Color.black);
-        Material potionMat = CreateMat(litShader, new Color(0.22f, 0.92f, 0.48f), 0.1f, 0.85f, new Color(0.15f, 0.65f, 0.3f));
-        Material redMat = CreateMat(litShader, new Color(0.88f, 0.18f, 0.18f), 0.2f, 0.5f, new Color(0.35f, 0.05f, 0.05f));
+        Shader litShader = FindSafeShader("Universal Render Pipeline/Lit", "Standard");
+        Material goldMat = CreateMat(litShader, new Color(1f, 0.82f, 0.2f), 0.92f, 0.78f, new Color(0.45f, 0.32f, 0.04f));
+        Material bronzeMat = CreateMat(litShader, new Color(0.84f, 0.62f, 0.18f), 0.85f, 0.62f, new Color(0.22f, 0.14f, 0.02f));
+        Material woodMat = CreateMat(litShader, new Color(0.54f, 0.34f, 0.17f), 0f, 0.22f, Color.black);
+        Material ironMat = CreateMat(litShader, new Color(0.28f, 0.3f, 0.34f), 0.85f, 0.55f, Color.black);
+        Material glassMat = CreateMat(litShader, new Color(0.76f, 0.95f, 0.96f), 0.1f, 0.92f, new Color(0.08f, 0.22f, 0.24f));
+        Material potionMat = CreateMat(litShader, new Color(0.18f, 0.92f, 0.45f), 0.1f, 0.85f, new Color(0.18f, 0.72f, 0.32f));
+        Material parchmentMat = CreateMat(litShader, new Color(0.95f, 0.9f, 0.75f), 0f, 0.2f, Color.black);
+        Material rubyMat = CreateMat(litShader, new Color(0.9f, 0.16f, 0.2f), 0.25f, 0.82f, new Color(0.45f, 0.05f, 0.06f));
+        Material sapphireMat = CreateMat(litShader, new Color(0.16f, 0.48f, 0.95f), 0.25f, 0.82f, new Color(0.05f, 0.18f, 0.48f));
 
         switch (type)
         {
             case ChestRewardType.Coins:
-                CreatePart(parent, PrimitiveType.Cylinder, new Vector3(-0.12f, 0f, 0f), new Vector3(90f, 0f, 15f), new Vector3(0.26f, 0.04f, 0.26f), goldMat);
-                CreatePart(parent, PrimitiveType.Cylinder, new Vector3(0.12f, 0.08f, 0.04f), new Vector3(90f, 25f, -10f), new Vector3(0.26f, 0.04f, 0.26f), goldMat);
-                CreatePart(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.16f, -0.05f), new Vector3(90f, -15f, 5f), new Vector3(0.26f, 0.04f, 0.26f), goldMat);
+                BuildCoinMesh(parent, new Vector3(-0.15f, 0f, 0f), new Vector3(90f, 0f, 14f), goldMat, bronzeMat);
+                BuildCoinMesh(parent, new Vector3(0.15f, 0.09f, 0.05f), new Vector3(90f, 24f, -12f), goldMat, bronzeMat);
+                BuildCoinMesh(parent, new Vector3(0f, 0.18f, -0.06f), new Vector3(90f, -18f, 6f), goldMat, bronzeMat);
+                BuildCoinMesh(parent, new Vector3(0.05f, 0.28f, 0.03f), new Vector3(84f, 10f, -5f), goldMat, bronzeMat);
                 break;
 
             case ChestRewardType.Planks:
-                CreatePart(parent, PrimitiveType.Cube, new Vector3(0f, 0f, 0f), new Vector3(0f, 15f, 12f), new Vector3(0.7f, 0.09f, 0.22f), woodMat);
-                CreatePart(parent, PrimitiveType.Cube, new Vector3(0f, 0.11f, 0f), new Vector3(0f, -20f, -8f), new Vector3(0.7f, 0.09f, 0.22f), woodMat);
+                BuildPlankWithBands(parent, new Vector3(0f, -0.04f, 0f), new Vector3(0f, 16f, 8f), woodMat, ironMat);
+                BuildPlankWithBands(parent, new Vector3(0f, 0.08f, 0.03f), new Vector3(0f, -18f, -6f), woodMat, ironMat);
+                BuildPlankWithBands(parent, new Vector3(0f, 0.20f, -0.02f), new Vector3(4f, 4f, 12f), woodMat, ironMat);
                 break;
 
             case ChestRewardType.Potions:
-                CreatePart(parent, PrimitiveType.Sphere, Vector3.zero, Vector3.zero, new Vector3(0.34f, 0.38f, 0.34f), potionMat);
-                CreatePart(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.24f, 0f), Vector3.zero, new Vector3(0.13f, 0.12f, 0.13f), potionMat);
-                CreatePart(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.35f, 0f), Vector3.zero, new Vector3(0.11f, 0.06f, 0.11f), woodMat);
+                // Ornate multi-tier glass potion flask with emerald elixir and cork
+                CreatePart(parent, PrimitiveType.Cylinder, new Vector3(0f, -0.14f, 0f), Vector3.zero, new Vector3(0.32f, 0.06f, 0.32f), bronzeMat);
+                CreatePart(parent, PrimitiveType.Sphere, new Vector3(0f, 0.04f, 0f), Vector3.zero, new Vector3(0.38f, 0.34f, 0.38f), potionMat);
+                CreatePart(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.21f, 0f), Vector3.zero, new Vector3(0.18f, 0.07f, 0.18f), glassMat);
+                CreatePart(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.30f, 0f), Vector3.zero, new Vector3(0.12f, 0.08f, 0.12f), glassMat);
+                CreatePart(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.37f, 0f), Vector3.zero, new Vector3(0.16f, 0.025f, 0.16f), glassMat);
+                CreatePart(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.42f, 0f), Vector3.zero, new Vector3(0.10f, 0.05f, 0.10f), woodMat);
                 break;
 
             case ChestRewardType.GoldenKey:
-                CreatePart(parent, PrimitiveType.Cylinder, new Vector3(-0.22f, 0f, 0f), new Vector3(90f, 0f, 0f), new Vector3(0.26f, 0.05f, 0.26f), goldMat);
-                CreatePart(parent, PrimitiveType.Cube, new Vector3(0.08f, 0f, 0f), Vector3.zero, new Vector3(0.46f, 0.07f, 0.07f), goldMat);
-                CreatePart(parent, PrimitiveType.Cube, new Vector3(0.22f, -0.09f, 0f), Vector3.zero, new Vector3(0.06f, 0.14f, 0.06f), goldMat);
-                CreatePart(parent, PrimitiveType.Cube, new Vector3(0.30f, -0.07f, 0f), Vector3.zero, new Vector3(0.06f, 0.10f, 0.06f), goldMat);
+                // Open ring bow built from 6 gold segments + center ruby + collar + fluted blade + teeth
+                for (int i = 0; i < 6; i++)
+                {
+                    float a = i * 60f * Mathf.Deg2Rad;
+                    Vector3 segPos = new Vector3(-0.24f + Mathf.Cos(a) * 0.11f, Mathf.Sin(a) * 0.11f, 0f);
+                    CreatePart(parent, PrimitiveType.Cube, segPos, new Vector3(0f, 0f, i * 60f + 90f), new Vector3(0.05f, 0.12f, 0.05f), goldMat);
+                }
+                CreatePart(parent, PrimitiveType.Sphere, new Vector3(-0.24f, 0f, 0f), Vector3.zero, new Vector3(0.09f, 0.09f, 0.07f), rubyMat);
+                CreatePart(parent, PrimitiveType.Cylinder, new Vector3(-0.08f, 0f, 0f), new Vector3(0f, 0f, 90f), new Vector3(0.09f, 0.03f, 0.09f), bronzeMat);
+                CreatePart(parent, PrimitiveType.Cylinder, new Vector3(0.14f, 0f, 0f), new Vector3(0f, 0f, 90f), new Vector3(0.06f, 0.24f, 0.06f), goldMat);
+                CreatePart(parent, PrimitiveType.Cube, new Vector3(0.24f, -0.09f, 0f), Vector3.zero, new Vector3(0.05f, 0.15f, 0.045f), goldMat);
+                CreatePart(parent, PrimitiveType.Cube, new Vector3(0.32f, -0.07f, 0f), Vector3.zero, new Vector3(0.05f, 0.11f, 0.045f), goldMat);
                 break;
 
             case ChestRewardType.MagicCompass:
-                CreatePart(parent, PrimitiveType.Cylinder, Vector3.zero, new Vector3(70f, 0f, 0f), new Vector3(0.42f, 0.07f, 0.42f), goldMat);
-                CreatePart(parent, PrimitiveType.Cube, new Vector3(0f, 0.02f, -0.05f), new Vector3(-20f, 0f, 0f), new Vector3(0.06f, 0.32f, 0.04f), redMat);
+                // Beveled brass case, dark bezel, parchment dial, two-tone needle, top loop
+                CreatePart(parent, PrimitiveType.Cylinder, Vector3.zero, new Vector3(72f, 0f, 0f), new Vector3(0.46f, 0.055f, 0.46f), bronzeMat);
+                CreatePart(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.01f, -0.015f), new Vector3(72f, 0f, 0f), new Vector3(0.40f, 0.058f, 0.40f), ironMat);
+                CreatePart(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.014f, -0.022f), new Vector3(72f, 0f, 0f), new Vector3(0.35f, 0.06f, 0.35f), parchmentMat);
+                CreatePart(parent, PrimitiveType.Cube, new Vector3(0f, 0.06f, -0.07f), new Vector3(-18f, 0f, 0f), new Vector3(0.05f, 0.16f, 0.03f), rubyMat);
+                CreatePart(parent, PrimitiveType.Cube, new Vector3(0f, -0.04f, -0.035f), new Vector3(-18f, 0f, 0f), new Vector3(0.04f, 0.14f, 0.03f), sapphireMat);
+                CreatePart(parent, PrimitiveType.Sphere, new Vector3(0f, 0.015f, -0.05f), Vector3.zero, Vector3.one * 0.07f, goldMat);
+                CreatePart(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.25f, 0.07f), new Vector3(72f, 0f, 0f), new Vector3(0.11f, 0.03f, 0.11f), goldMat);
                 break;
 
             case ChestRewardType.GoldenCrown:
-                CreatePart(parent, PrimitiveType.Cylinder, Vector3.zero, Vector3.zero, new Vector3(0.48f, 0.14f, 0.48f), goldMat);
-                for (int i = 0; i < 4; i++)
+                // Ornate gold band, crimson royal velvet cap, 6 jeweled spires
+                CreatePart(parent, PrimitiveType.Cylinder, Vector3.zero, Vector3.zero, new Vector3(0.52f, 0.13f, 0.52f), goldMat);
+                CreatePart(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.12f, 0f), Vector3.zero, new Vector3(0.46f, 0.03f, 0.46f), bronzeMat);
+                CreatePart(parent, PrimitiveType.Sphere, new Vector3(0f, 0.13f, 0f), Vector3.zero, new Vector3(0.40f, 0.24f, 0.40f), rubyMat);
+                for (int i = 0; i < 6; i++)
                 {
-                    float angle = i * 90f * Mathf.Deg2Rad;
-                    Vector3 spirePos = new Vector3(Mathf.Cos(angle) * 0.2f, 0.22f, Mathf.Sin(angle) * 0.2f);
-                    CreatePart(parent, PrimitiveType.Cube, spirePos, Vector3.zero, new Vector3(0.08f, 0.22f, 0.08f), goldMat);
+                    float angle = i * 60f * Mathf.Deg2Rad;
+                    float r = 0.22f;
+                    Vector3 spirePos = new Vector3(Mathf.Cos(angle) * r, 0.24f, Mathf.Sin(angle) * r);
+                    CreatePart(parent, PrimitiveType.Cube, spirePos, new Vector3(0f, -i * 60f, 0f), new Vector3(0.075f, 0.24f, 0.06f), goldMat);
+                    CreatePart(parent, PrimitiveType.Sphere, spirePos + Vector3.up * 0.14f, Vector3.zero, Vector3.one * 0.075f, goldMat);
+
+                    Vector3 gemPos = new Vector3(Mathf.Cos(angle) * 0.265f, 0.02f, Mathf.Sin(angle) * 0.265f);
+                    Material gemMat = (i % 3 == 0) ? rubyMat : (i % 3 == 1 ? sapphireMat : potionMat);
+                    CreatePart(parent, PrimitiveType.Sphere, gemPos, Vector3.zero, Vector3.one * 0.08f, gemMat);
                 }
-                CreatePart(parent, PrimitiveType.Sphere, new Vector3(0f, 0.08f, 0.24f), Vector3.zero, Vector3.one * 0.10f, redMat);
                 break;
         }
+    }
+
+    private static void BuildCoinMesh(Transform parent, Vector3 pos, Vector3 euler, Material goldMat, Material rimMat)
+    {
+        GameObject coin = new GameObject("Coin");
+        coin.transform.SetParent(parent, false);
+        coin.transform.localPosition = pos;
+        coin.transform.localRotation = Quaternion.Euler(euler);
+        CreatePart(coin.transform, PrimitiveType.Cylinder, Vector3.zero, Vector3.zero, new Vector3(0.28f, 0.028f, 0.28f), rimMat);
+        CreatePart(coin.transform, PrimitiveType.Cylinder, Vector3.zero, Vector3.zero, new Vector3(0.22f, 0.036f, 0.22f), goldMat);
+    }
+
+    private static void BuildPlankWithBands(Transform parent, Vector3 pos, Vector3 euler, Material woodMat, Material ironMat)
+    {
+        GameObject plank = new GameObject("Plank");
+        plank.transform.SetParent(parent, false);
+        plank.transform.localPosition = pos;
+        plank.transform.localRotation = Quaternion.Euler(euler);
+        CreatePart(plank.transform, PrimitiveType.Cube, Vector3.zero, Vector3.zero, new Vector3(0.76f, 0.075f, 0.22f), woodMat);
+        CreatePart(plank.transform, PrimitiveType.Cube, new Vector3(-0.26f, 0f, 0f), Vector3.zero, new Vector3(0.06f, 0.085f, 0.235f), ironMat);
+        CreatePart(plank.transform, PrimitiveType.Cube, new Vector3(0.26f, 0f, 0f), Vector3.zero, new Vector3(0.06f, 0.085f, 0.235f), ironMat);
+    }
+
+    private static Shader FindSafeShader(string primary, string fallback)
+    {
+        Shader shader = Shader.Find(primary);
+        if (shader == null)
+            shader = Shader.Find(fallback);
+        return shader;
     }
 
     private static void CreatePart(Transform parent, PrimitiveType type, Vector3 localPos, Vector3 localEuler, Vector3 localScale, Material mat)

@@ -49,7 +49,7 @@ public static class Phase6DiscoveryIslandSetup
         BuildOrLoadChestPrefabs(out GameObject regularChestPrefab, out GameObject specialChestPrefab);
 
         Scene islandScene = EditorSceneManager.OpenScene(IslandScenePath, OpenSceneMode.Single);
-        Terrain terrain = Object.FindFirstObjectByType<Terrain>();
+        Terrain terrain = Object.FindAnyObjectByType<Terrain>();
         if (terrain == null || terrain.terrainData == null)
         {
             EditorUtility.DisplayDialog(
@@ -118,13 +118,25 @@ public static class Phase6DiscoveryIslandSetup
         instance.transform.rotation = Quaternion.identity;
         instance.transform.localScale = Vector3.one * (isSpecial ? 0.9f : 0.72f);
 
-        // Ensure interaction collider exists on root
+        // Ensure interaction collider exists on root (trigger for E prompt)
         BoxCollider interactionCol = instance.GetComponent<BoxCollider>();
         if (interactionCol == null)
             interactionCol = instance.AddComponent<BoxCollider>();
         interactionCol.isTrigger = true;
         interactionCol.center = new Vector3(0f, 0.75f, 0f);
         interactionCol.size = new Vector3(2.4f, 1.8f, 2.2f);
+
+        // Add dedicated solid non-trigger body collider so the player cannot walk through chests
+        Transform oldSolid = instance.transform.Find("SolidBodyCollider");
+        if (oldSolid != null)
+            Object.DestroyImmediate(oldSolid.gameObject);
+
+        GameObject solidBodyGo = new GameObject("SolidBodyCollider");
+        solidBodyGo.transform.SetParent(instance.transform, false);
+        BoxCollider solidCol = solidBodyGo.AddComponent<BoxCollider>();
+        solidCol.isTrigger = false;
+        solidCol.center = new Vector3(0f, 0.52f, 0f);
+        solidCol.size = new Vector3(1.55f, 1.05f, 1.05f);
 
         // Lock visual at front center
         GameObject lockObj = CreatePrimitiveChild(instance.transform, "LockVisual", PrimitiveType.Cube, new Vector3(0f, 0.78f, 0.88f), new Vector3(0.32f, 0.36f, 0.14f), isSpecial ? auraMat : goldMat);
@@ -140,6 +152,7 @@ public static class Phase6DiscoveryIslandSetup
         fxGo.transform.localPosition = new Vector3(0f, 0.95f, 0f);
         fxGo.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
         ParticleSystem ps = fxGo.AddComponent<ParticleSystem>();
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         ParticleSystem.MainModule main = ps.main;
         main.playOnAwake = false;
         main.loop = false;
@@ -449,7 +462,7 @@ public static class Phase6DiscoveryIslandSetup
 
     private static void DisableDecorativePointShadows(Scene scene)
     {
-        Light[] lights = Object.FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        Light[] lights = Object.FindObjectsByType<Light>(FindObjectsInactive.Include);
         for (int i = 0; i < lights.Length; i++)
         {
             if (lights[i].gameObject.scene == scene && lights[i].type != LightType.Directional)
@@ -492,7 +505,9 @@ public static class Phase6DiscoveryIslandSetup
         if (mat != null)
             return mat;
 
-        Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+        if (shader == null)
+            shader = Shader.Find("Standard");
         mat = new Material(shader);
         if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
         if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
@@ -523,7 +538,9 @@ public static class Phase6DiscoveryIslandSetup
         if (mat != null)
             return mat;
 
-        Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit") ?? Shader.Find("Particles/Standard Unlit");
+        Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+        if (shader == null)
+            shader = Shader.Find("Particles/Standard Unlit");
         mat = new Material(shader);
         if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
         if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);

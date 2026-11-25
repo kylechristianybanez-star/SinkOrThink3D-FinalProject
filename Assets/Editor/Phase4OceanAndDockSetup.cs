@@ -59,7 +59,7 @@ public static class Phase4OceanAndDockSetup
     private static int FixAdditionalLightShadows(Scene scene)
     {
         int count = 0;
-        Light[] lights = Object.FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        Light[] lights = Object.FindObjectsByType<Light>(FindObjectsInactive.Include);
         for (int i = 0; i < lights.Length; i++)
         {
             Light l = lights[i];
@@ -127,7 +127,7 @@ public static class Phase4OceanAndDockSetup
             docking.boat = FindSceneObjectByName(scene, "OldWoodenRowboat_Complete");
 
         if (docking.quizManager == null)
-            docking.quizManager = Object.FindFirstObjectByType<QuizManager>();
+            docking.quizManager = Object.FindAnyObjectByType<QuizManager>();
 
         // Create safe sea-level parking spot next to the dock
         GameObject parkingGo = GetOrCreateChild(dockPointObj.transform, "DockParkingPoint");
@@ -203,7 +203,7 @@ public static class Phase4OceanAndDockSetup
         GameObject canvasGo = FindSceneObjectByName(scene, "HealthCanvas");
         if (canvasGo == null)
         {
-            Canvas anyCanvas = Object.FindFirstObjectByType<Canvas>();
+            Canvas anyCanvas = Object.FindAnyObjectByType<Canvas>();
             if (anyCanvas != null)
                 canvasGo = anyCanvas.gameObject;
         }

@@ -56,6 +56,7 @@ public static class Phase8InventoryAndRepairSetup
         fxGo.transform.localPosition = new Vector3(0f, 1.15f, 0f);
         fxGo.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
         ParticleSystem ps = fxGo.AddComponent<ParticleSystem>();
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         ParticleSystem.MainModule main = ps.main;
         main.playOnAwake = false;
         main.loop = false;

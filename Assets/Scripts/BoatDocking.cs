@@ -45,7 +45,7 @@ public class BoatDocking : MonoBehaviour
         }
 
         if (quizManager == null)
-            quizManager = FindFirstObjectByType<QuizManager>();
+            quizManager = FindAnyObjectByType<QuizManager>();
 
         if (promptPanel != null)
             promptPanel.SetActive(false);
@@ -82,9 +82,29 @@ public class BoatDocking : MonoBehaviour
 
         bool quizActive = quizManager != null && quizManager.IsQuizActive;
         if (isActiveTargetIsland && !isDocked && !quizActive)
-            UpdateGuideText(islandDisplayName + " Dock: " + Mathf.RoundToInt(distance) + "m");
+        {
+            Vector3 boatFwd = new Vector3(boat.transform.forward.x, 0f, boat.transform.forward.z);
+            Vector3 toDock = new Vector3(targetPoint.x - boat.transform.position.x, 0f, targetPoint.z - boat.transform.position.z);
+            string dirLabel = "";
+            if (boatFwd.sqrMagnitude > 0.001f && toDock.sqrMagnitude > 0.01f)
+            {
+                float signedAngle = Vector3.SignedAngle(boatFwd.normalized, toDock.normalized, Vector3.up);
+                if (Mathf.Abs(signedAngle) <= 22f)
+                    dirLabel = "Ahead ^  ";
+                else if (signedAngle > 22f && signedAngle < 135f)
+                    dirLabel = "Turn Right ->  ";
+                else if (signedAngle < -22f && signedAngle > -135f)
+                    dirLabel = "<- Turn Left  ";
+                else
+                    dirLabel = "Behind v  ";
+            }
+
+            UpdateGuideText("Next Dock: " + islandDisplayName + " — " + dirLabel + "(" + Mathf.RoundToInt(distance) + "m)");
+        }
         else if (isActiveTargetIsland)
+        {
             UpdateGuideText("");
+        }
 
         if (isDocked)
         {
@@ -213,6 +233,7 @@ public class BoatDocking : MonoBehaviour
             if (sink != null)
                 state.SetBoatHealth(sink.currentHealth);
 
+            state.SaveProgress();
             yield return new WaitForSeconds(0.5f);
             fader.FadeAndLoadScene(targetIslandSceneName, 0.7f);
             yield break;

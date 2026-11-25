@@ -68,7 +68,7 @@ public static class Phase5IslandTransitionSetup
         RenderSettings.fogColor = new Color(0.67f, 0.83f, 0.93f, 1f);
         RenderSettings.fogDensity = 0.0020f;
 
-        Light dirLight = Object.FindFirstObjectByType<Light>();
+        Light dirLight = Object.FindAnyObjectByType<Light>();
         if (dirLight != null && dirLight.type == LightType.Directional)
         {
             dirLight.intensity = 1.25f;
@@ -216,7 +216,7 @@ public static class Phase5IslandTransitionSetup
         playerCtrl.cameraTransform = camGo.transform;
 
         // Single EventSystem
-        EventSystem[] existingSystems = Object.FindObjectsByType<EventSystem>(FindObjectsSortMode.None);
+        EventSystem[] existingSystems = Object.FindObjectsByType<EventSystem>();
         if (existingSystems.Length == 0)
         {
             GameObject esGo = new GameObject("EventSystem");
@@ -317,7 +317,7 @@ public static class Phase5IslandTransitionSetup
 
     private static void EnableGameSceneDockTransition(Scene gameScene)
     {
-        BoatDocking docking = Object.FindFirstObjectByType<BoatDocking>();
+        BoatDocking docking = Object.FindAnyObjectByType<BoatDocking>();
         if (docking == null)
         {
             Debug.LogWarning("Phase 5 Setup: BoatDocking not found in GameScene.");

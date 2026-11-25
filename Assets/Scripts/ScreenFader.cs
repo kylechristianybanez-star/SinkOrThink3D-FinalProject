@@ -38,7 +38,7 @@ public class ScreenFader : MonoBehaviour
         if (Instance != null)
             return Instance;
 
-        ScreenFader existing = FindFirstObjectByType<ScreenFader>();
+        ScreenFader existing = FindAnyObjectByType<ScreenFader>();
         if (existing != null)
         {
             Instance = existing;

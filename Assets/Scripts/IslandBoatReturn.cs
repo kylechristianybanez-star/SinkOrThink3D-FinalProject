@@ -55,6 +55,7 @@ public class IslandBoatReturn : IslandInteractable
         state.lastDockedIslandIndex = islandIndex;
         state.returningFromIsland = true;
         bool advanced = state.TryAdvanceToNextIsland();
+        state.SaveProgress();
 
         string bannerMsg = advanced
             ? "Setting Sail for " + state.GetIslandDisplayName(state.currentIslandIndex) + "!"

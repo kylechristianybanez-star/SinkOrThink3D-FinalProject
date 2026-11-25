@@ -31,11 +31,12 @@ public class DockRepairStation : IslandInteractable
     public override void Interact(IslandPlayerController player)
     {
         GameStateManager state = GameStateManager.EnsureInstance();
-        bool repaired = state.TryCoinRepair(out int restored, out string feedback);
+        bool repaired = state.TryCoinRepair(out _, out string feedback);
 
         if (repaired)
         {
             GameAudioManager.EnsureInstance().PlayRepair();
+            ScreenFeedbackFX.EnsureInstance().TriggerRepairFeedback();
             if (repairBurstParticles != null)
                 repairBurstParticles.Play();
         }

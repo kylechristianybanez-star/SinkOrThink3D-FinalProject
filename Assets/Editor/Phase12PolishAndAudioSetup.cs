@@ -33,10 +33,15 @@ public static class Phase12PolishAndAudioSetup
         if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             return;
 
+        Debug.Log("[BuildAll] Step 1/5: Phase 9.5 Discovery Island Polish...");
         Phase9_5DiscoveryIslandPolish.RunBuild(false);
+        Debug.Log("[BuildAll] Step 2/5: Phase 10 Viking Island...");
         Phase10VikingIslandSetup.RunBuild(false);
+        Debug.Log("[BuildAll] Step 3/5: Phase 11 Final Treasure Island...");
         Phase11FinalIslandSetup.RunBuild(false);
+        Debug.Log("[BuildAll] Step 4/5: Phase 12 Visuals, Audio & Settings...");
         RunBuild(false);
+        Debug.Log("[BuildAll] Step 5/5: Phase 13 Optimization & Full QA Audit...");
         Phase13OptimizationAndQATool.RunOptimizationAndAudit(false);
 
         EditorSceneManager.OpenScene(MainMenuPath, OpenSceneMode.Single);
@@ -105,6 +110,11 @@ public static class Phase12PolishAndAudioSetup
         SceneManager.MoveGameObjectToScene(audioGo, mainMenu);
         GameAudioManager audioMgr = audioGo.AddComponent<GameAudioManager>();
 
+        audioMgr.adventureMusicClip = LoadAudio("BGM_Adventure.wav");
+        audioMgr.islandMusicClip = LoadAudio("BGM_Island.wav");
+        audioMgr.gameOverMusicClip = LoadAudio("BGM_GameOver.wav");
+        audioMgr.victoryMusicClip = LoadAudio("BGM_Victory.wav");
+
         audioMgr.oceanAmbienceClip = LoadAudio("Ambience_Ocean.wav");
         audioMgr.discoveryAmbienceClip = LoadAudio("Ambience_Discovery.wav");
         audioMgr.vikingAmbienceClip = LoadAudio("Ambience_Viking.wav");
@@ -123,10 +133,13 @@ public static class Phase12PolishAndAudioSetup
         audioMgr.victoryClip = LoadAudio("SFX_Victory.wav");
         audioMgr.gameOverClip = LoadAudio("SFX_GameOver.wav");
         audioMgr.uiClickClip = LoadAudio("SFX_Click.wav");
+        audioMgr.hintChimeClip = LoadAudio("SFX_HintChime.wav");
+        audioMgr.speedBoostClip = LoadAudio("SFX_SpeedBoost.wav");
+        audioMgr.hullCreakClip = LoadAudio("SFX_HullCreak.wav");
         EditorUtility.SetDirty(audioMgr);
 
         // Wire SettingsButton on MainMenuCanvas without overlapping Play/HowToPlay/Quit
-        MainMenuManager menuMgr = Object.FindFirstObjectByType<MainMenuManager>();
+        MainMenuManager menuMgr = Object.FindAnyObjectByType<MainMenuManager>();
         GameObject canvasGo = FindSceneObjectByName(mainMenu, "MainMenuCanvas");
         if (canvasGo == null || menuMgr == null)
             return;
@@ -245,7 +258,9 @@ public static class Phase12PolishAndAudioSetup
         if (mat != null)
             return mat;
 
-        Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+        if (shader == null)
+            shader = Shader.Find("Standard");
         mat = new Material(shader);
         if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", new Color(0.96f, 0.97f, 1f, 1f));
         if (mat.HasProperty("_Color")) mat.SetColor("_Color", new Color(0.96f, 0.97f, 1f, 1f));
@@ -256,6 +271,19 @@ public static class Phase12PolishAndAudioSetup
 
     private static void GenerateAllWavAssets()
     {
+        WriteMusicLoopWavIfMissing("BGM_Adventure.wav", 8.0f, 0.22f,
+            new float[] { 261.63f, 329.63f, 392.00f, 329.63f, 293.66f, 349.23f, 440.00f, 349.23f, 392.00f, 493.88f, 587.33f, 493.88f, 261.63f, 329.63f, 392.00f, 523.25f },
+            new float[] { 130.81f, 146.83f, 196.00f, 130.81f }, true);
+        WriteMusicLoopWavIfMissing("BGM_Island.wav", 8.0f, 0.20f,
+            new float[] { 349.23f, 440.00f, 523.25f, 440.00f, 293.66f, 349.23f, 440.00f, 349.23f, 261.63f, 329.63f, 392.00f, 329.63f, 349.23f, 440.00f, 523.25f, 392.00f },
+            new float[] { 174.61f, 146.83f, 130.81f, 174.61f }, true);
+        WriteMusicLoopWavIfMissing("BGM_GameOver.wav", 8.0f, 0.24f,
+            new float[] { 220.00f, 261.63f, 329.63f, 261.63f, 174.61f, 220.00f, 261.63f, 220.00f, 146.83f, 174.61f, 220.00f, 174.61f, 164.81f, 196.00f, 246.94f, 196.00f },
+            new float[] { 110.00f, 87.31f, 73.42f, 82.41f }, false);
+        WriteMusicLoopWavIfMissing("BGM_Victory.wav", 6.0f, 0.26f,
+            new float[] { 523.25f, 659.25f, 783.99f, 1046.50f, 698.46f, 880.00f, 1046.50f, 880.00f, 783.99f, 987.77f, 1174.66f, 987.77f, 1046.50f, 783.99f, 659.25f, 523.25f },
+            new float[] { 261.63f, 349.23f, 392.00f, 261.63f }, true);
+
         WriteNoiseWavIfMissing("Ambience_Ocean.wav", 4.0f, 0.16f, 0.045f, 0f);
         WriteNoiseWavIfMissing("Ambience_Discovery.wav", 4.0f, 0.12f, 0.07f, 2100f);
         WriteNoiseWavIfMissing("Ambience_Viking.wav", 4.0f, 0.15f, 0.035f, 0f);
@@ -274,6 +302,53 @@ public static class Phase12PolishAndAudioSetup
         WriteArpeggioWavIfMissing("SFX_Victory.wav", new float[] { 523.25f, 659.25f, 783.99f, 1046.50f }, 0.85f, 0.32f);
         WriteArpeggioWavIfMissing("SFX_GameOver.wav", new float[] { 293.66f, 261.63f, 220.00f, 174.61f }, 0.72f, 0.28f);
         WritePercussionWavIfMissing("SFX_Click.wav", 0.06f, 620f, 0.18f);
+        WriteArpeggioWavIfMissing("SFX_HintChime.wav", new float[] { 659.25f, 880.00f, 1174.66f }, 0.34f, 0.24f);
+        WriteArpeggioWavIfMissing("SFX_SpeedBoost.wav", new float[] { 392.00f, 523.25f, 659.25f, 987.77f }, 0.44f, 0.26f);
+        WritePercussionWavIfMissing("SFX_HullCreak.wav", 0.24f, 95f, 0.32f);
+    }
+
+    private static void WriteMusicLoopWavIfMissing(string fileName, float duration, float amplitude, float[] notesHz, float[] bassHz, bool brightStyle)
+    {
+        string assetPath = AudioFolder + "/" + fileName;
+        string fullPath = Path.GetFullPath(assetPath);
+        if (File.Exists(fullPath))
+            return;
+
+        const int sampleRate = 22050;
+        int samples = Mathf.Max(256, Mathf.RoundToInt(sampleRate * duration));
+        float[] data = new float[samples];
+        float noteDur = duration / Mathf.Max(1, notesHz.Length);
+        float bassDur = duration / Mathf.Max(1, bassHz.Length);
+
+        for (int i = 0; i < samples; i++)
+        {
+            float t = i / (float)sampleRate;
+
+            int nIdx = Mathf.Clamp(Mathf.FloorToInt(t / noteDur), 0, notesHz.Length - 1);
+            float localNoteT = t - nIdx * noteDur;
+            float nAttack = Mathf.Clamp01(localNoteT / 0.04f);
+            float nDecay = brightStyle ? Mathf.Exp(-localNoteT * 2.2f) : Mathf.Exp(-localNoteT * 1.1f);
+            float melodyFreq = notesHz[nIdx];
+            float melody = (Mathf.Sin(2f * Mathf.PI * melodyFreq * t) + 0.28f * Mathf.Sin(4f * Mathf.PI * melodyFreq * t)) * nAttack * nDecay;
+
+            int bIdx = Mathf.Clamp(Mathf.FloorToInt(t / bassDur), 0, bassHz.Length - 1);
+            float localBassT = t - bIdx * bassDur;
+            float bAttack = Mathf.Clamp01(localBassT / 0.08f);
+            float bSwell = Mathf.Exp(-localBassT * 0.55f);
+            float bassFreq = bassHz[bIdx];
+            float bass = (Mathf.Sin(2f * Mathf.PI * bassFreq * t) + 0.22f * Mathf.Sin(4f * Mathf.PI * bassFreq * t)) * bAttack * bSwell;
+
+            data[i] = Mathf.Clamp((melody * 0.55f + bass * 0.65f) * amplitude, -0.88f, 0.88f);
+        }
+
+        int fade = Mathf.Min(2048, samples / 8);
+        for (int i = 0; i < fade; i++)
+        {
+            float blend = i / (float)fade;
+            data[i] = Mathf.Lerp(data[samples - fade + i], data[i], blend);
+        }
+
+        WritePcm16MonoWav(fullPath, data, sampleRate);
     }
 
     private static void WriteNoiseWavIfMissing(string fileName, float duration, float amplitude, float smoothing, float subtleToneHz)

@@ -14,7 +14,7 @@ public class OceanBoatSpawner : MonoBehaviour
 
         state.returningFromIsland = false;
 
-        BoatDocking[] docks = FindObjectsByType<BoatDocking>(FindObjectsSortMode.None);
+        BoatDocking[] docks = FindObjectsByType<BoatDocking>();
         BoatDocking matchingDock = null;
 
         for (int i = 0; i < docks.Length; i++)
